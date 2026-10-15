@@ -15,7 +15,7 @@
 
 ## Release
 
-- Publish v0.1.0 with the portable ZIP and its SHA-256 checksum.
+- Published [v0.1.0](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/tag/v0.1.0) with the portable ZIP and its SHA-256 checksum; GitHub's asset digest matches the tested local ZIP.
 
 ## Later
 
