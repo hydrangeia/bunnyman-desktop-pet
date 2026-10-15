@@ -132,8 +132,6 @@ def test_conda_libffi_is_detected_for_packaging_but_not_required_elsewhere(tmp_p
     ffi = library_bin / "ffi.dll"
     ffi.write_bytes(b"libffi")
     assert build_release._conda_runtime_binaries(tmp_path) == [ffi]
-
-
 def test_build_refuses_output_folder_that_contains_the_source_project(tmp_path):
     media = tmp_path / "frames" / "idle.png"
     media.parent.mkdir()

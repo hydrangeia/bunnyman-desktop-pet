@@ -175,7 +175,7 @@ def _copy_release_data(app_dir: Path, manifest: dict[str, Any], assets: list[tup
         target = app_dir.joinpath(*PurePosixPath(relative).parts)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-    for filename in ("README.md", "README.en.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):
+    for filename in ("README.md", "README.en.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "app.ico"):
         source = ROOT / filename
         if source.is_file():
             shutil.copy2(source, app_dir / filename)

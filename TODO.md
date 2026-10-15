@@ -4,20 +4,21 @@
 
 - Three looks: normal, sleep cap, and sleep cap with pillow.
 - Action controller for complete sleep, burrow, jump, walk/run, and recovery flows.
-- Lively and quiet interaction schedules, feeding, hover, tap, drag, and menu controls.
+- Silent lively and quiet interaction schedules, visible carrot feeding, hover, body taps, double-clicks, dragging, and discoverable wheel/shake reactions.
+- Screen/taskbar/ordinary-window edge docking, following moving windows, and sleep support based on the visible body outline.
+- Pillow release transitions and independent hit, thaw, and pillow-petal effects.
 - Manifest-driven frame loading and a bounded animation cache.
-- Pure-Python regression tests for export geometry, action transitions, and interaction timing.
-- Windows onedir build script, launcher smoke-test report, dependency pins, and source-check workflow are prepared.
+- 144 regression tests pass from a source-only archive without local game files; the Windows GitHub Actions source checks also pass.
+- Windows x64 portable ZIP built in a clean project-local environment, with all 5,604 referenced images and dependency license texts.
+- Packaged executable smoke checks pass both in the bundle folder and after ZIP extraction into a Chinese/space-containing path: 99 clips, 55 clip names, 30 complete actions, and 5,603 animation/effect frames.
+- Bilingual build/download guides and a public source repository.
 
-## Still to verify before release
+## Release
 
-- Install the pinned dependencies in the clean project-local build environment and complete a Windows x64 onedir build.
-- Build using the final manifest, then confirm the ZIP contains every referenced frame, prop, and effect and no unused render outputs.
-- Run the packaged smoke test on the finished bundle and check snapping, sleep grounding, feed animation, and the pillow release sequence on a Windows desktop.
-- Review the Klei asset use and third-party notices against the actual files included in the release.
-- Publish the free fan-app bundle only after the app and included assets are ready.
+- Publish v0.1.0 with the portable ZIP and its SHA-256 checksum.
 
 ## Later
 
-- Keep the Chinese and English guides in sync as interactions and packaging settle.
-- Revisit the desktop behavior based on real use, without promising accuracy or support that has not been tested.
+- Try more window arrangements and mixed-DPI monitors during everyday use.
+- Refine pillow motion and the timing of discoveries from play feedback.
+- Walking and running currently stay in place; consider movement as a separate interaction milestone.
