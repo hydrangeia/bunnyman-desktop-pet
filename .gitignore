@@ -1,0 +1,39 @@
+# Local game-derived data and generated renders are supplied only to a release bundle.
+/manifest.json
+/frames/
+/props/
+/effects/
+/rendered/
+/manifest.new.json
+/pet_*.json
+/package-audit*.json
+*.zip
+
+# Local render previews and contact sheets.
+*.png
+*.webp
+*.jpg
+*.jpeg
+
+# Python and test caches.
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Local environments, build trees, packaged output, and logs.
+.venv/
+.build-venv/
+.build/
+build/
+dist/
+release/
+*.log
+*.pid
+*.tmp
+*.spec
+
+# Local editor and OS metadata.
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
