@@ -6,9 +6,11 @@
 
 ## 下载与启动
 
-下载 [Windows x64 完整包 v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。它不需要另装 Python；请保留 ZIP 解压后的 `_internal` 文件夹和 `manifest.json`、图片资源目录。
+首次使用，请下载 [Windows x64 完整包 v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。无需另装 Python；请保留 `_internal` 文件夹、`manifest.json` 和图片资源目录。
 
-如果你已经安装了完整的 v0.1.0，可以下载 [v0.1.0 → v0.1.1 更新包](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip)。先退出兔人，把更新包解压到已有的 `BunnymanDesktopPet` 程序文件夹，确认覆盖同名文件后再启动。更新包只适用于完整的 v0.1.0；更早或不完整的安装请使用完整包。更新包不会删除程序目录里的其他文件。历史版本见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
+如果你已经安装了完整的 v0.1.0，使用 [约 5 MB 的独立更新器](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-updater.exe)：双击运行，选择原来的 `BunnymanDesktopPet.exe`，再点击“更新并重启”。它会检查旧版资源和补丁，关闭对应的兔人、备份并替换文件，再重新启动；文件替换失败会自动恢复备份。更新器本身无需 Python。
+
+[v0.1.0 → v0.1.1 手动覆盖包](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip)只供手动覆盖使用，不能单独运行，也不是完整桌宠。它不包含 Python 运行库；如果误把 ZIP 里的文件当程序运行并看到缺少 `python313.dll`，无需安装 Python。只有完整 v0.1.0 安装适用此更新：先退出兔人，再把 ZIP 解压到已有的 `BunnymanDesktopPet` 程序文件夹并确认覆盖同名文件。缺少完整程序文件时，请下载上面的完整包。历史版本见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
 
 桌宠默认是睡帽兔人，会贴近屏幕底部，脚底按身体实际轮廓落地。它是透明无边框的小窗，保持在普通窗口上方；可吸附到屏幕、任务栏和普通窗口的边缘，并随窗口移动。右键菜单里可以喂食、切换陪伴节奏和自动活动、开关吸附、调整外观和大小，或退出。
 
@@ -47,6 +49,8 @@
 已通过 Windows 原生窗口枚举和客户端捕获检查，OBS、直播姬中的完整采集和抠色仍待实机试用。可参考 [OBS 窗口捕获说明](https://obsproject.com/kb/window-capture-sources)、[OBS Chroma Key 滤镜说明](https://obsproject.com/kb/chroma-key-filter) 和 [B站官方开播指南](https://live.bilibili.com/blackboard/era/u4EPvXpDYUMv7hYJ.html)。
 
 ## 从源码构建
+
+独立更新器的构建和测试方法见 [更新器开发说明](updater/README.md)。
 
 仓库包含桌宠代码和构建脚本，不包含游戏衍生图片、渲染帧或本机 `manifest.json`。如果你已有匹配的 v2 清单和帧图，可以跳过导出。`build_release.py` 只复制清单明确引用的 PNG/WebP 帧、道具和特效图片，并会从发布副本移除本机游戏目录和绝对路径；它不会打包游戏动画 ZIP。便携包还会保留 Qt/Python 和其他运行依赖的第三方许可证文本。
 

@@ -6,9 +6,11 @@ Keep a Don't Starve Together rabbit in the corner of your desktop. It notices ta
 
 ## Download and launch
 
-Download the [Windows x64 full bundle for v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required. Keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
+For a first-time install, download the [Windows x64 full bundle for v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required; keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
 
-If you already have the complete v0.1.0 installation, download the [v0.1.0 → v0.1.1 update ZIP](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip). Exit the pet, extract the update into the existing `BunnymanDesktopPet` program folder, confirm overwriting files with the same names, and start it again. This update requires a complete v0.1.0 install; use the full bundle for earlier or incomplete installs. The update does not delete other files in the program folder. Older versions are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
+If you already have the complete v0.1.0 installation, use the [standalone updater, about 5 MB](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-updater.exe): double-click it, select your original `BunnymanDesktopPet.exe`, then click “更新并重启” (Update and restart). It checks the installed resources and patch, closes the pet in that folder, backs up and replaces files, then restarts it. Failed file replacements restore the backup. The updater itself does not require Python.
+
+The [v0.1.0 → v0.1.1 manual overlay ZIP](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip) is only for manual file replacement. It cannot run by itself and is not a full pet bundle. It does not include the Python runtime; if you accidentally try to run a file from the ZIP and see a missing `python313.dll` message, do not install Python. This update is only for a complete v0.1.0 installation: exit the pet, extract the ZIP into the existing `BunnymanDesktopPet` program folder, and confirm replacing same-named files. If you do not have the complete program folder, download the full bundle above. Older versions are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
 
 The default look is a rabbit in a sleep cap, near the bottom of the screen, with its feet grounded to the actual body outline. The pet is a transparent, frameless window that stays above ordinary windows. It can snap to screen, taskbar, and regular window edges and follow a window as it moves. The right-click menu offers feeding, activity style and automatic activity, snapping, looks, size, and exit.
 
@@ -47,6 +49,8 @@ Check “直播采集窗口” in the pet's right-click menu to open a normal Wi
 Native Windows enumeration and client-area capture checks pass. End-to-end capture and keying in OBS and Live Companion still need testing in those applications. See the [OBS Window Capture guide](https://obsproject.com/kb/window-capture-sources), [OBS Chroma Key guide](https://obsproject.com/kb/chroma-key-filter), and [Bilibili's official streaming guide](https://live.bilibili.com/blackboard/era/u4EPvXpDYUMv7hYJ.html).
 
 ## Build from source
+
+See the [updater developer guide](updater/README.md) to build and test the standalone update assistant.
 
 The repository contains the pet code and build scripts, but not game-derived images, rendered frames, or the local `manifest.json`. If you already have a matching v2 manifest and rendered frames, you can skip exporting. `build_release.py` copies only PNG/WebP frames, props, and effects referenced by the manifest and removes local game directories and absolute paths from the release copy. It does not package game animation ZIPs. The portable bundle also keeps third-party license texts for Qt/Python and the other runtime dependencies.
 
