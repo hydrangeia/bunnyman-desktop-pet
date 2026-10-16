@@ -1705,6 +1705,15 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
     if not window.isVisible():
         raise AssertionError("关闭采集副窗时意外关闭了桌宠主窗")
     window.toggle_capture_window(True)
+    # Keep the expensive source-frame decoder out of the high-rate interaction
+    # stress checks below. Reopen it at finish() for the main-window close test.
+    window.toggle_capture_window(False)
+    # Showing the auxiliary window can move Qt's pointer focus through the pet
+    # and consume the hover cooldown. Start the interaction checks from a clean,
+    # deterministic policy state instead of inheriting that incidental event.
+    window.hover_timer.stop()
+    window.policy = InteractionPolicy(style="lively", rng=random.Random(0))
+    window.policy.set_enabled(False)
 
     # Sleep docking always chooses a floor, and drag input temporarily owns position.
     smoke_screen = Surface("screen:smoke", Rect(-1000, -1000, 2000, 1200), "screen")
@@ -1844,6 +1853,7 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
         window._activate(window.controller.current.clip, window.controller.current.mode)
 
     result = {"code": 1, "done": False}
+    waiting_for = {"message": "初始化"}
     timeout = QTimer()
     timeout.setSingleShot(True)
 
@@ -1858,6 +1868,9 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
     def finish() -> None:
         if result["done"]:
             return
+        # Exercise parent/auxiliary close coupling after the timed interaction
+        # checks, so capture decoding does not slow their 1 ms frame timer.
+        window.toggle_capture_window(True)
         capture = window.capture_window
         window.close()
         if window.isVisible() or (capture is not None and capture.isVisible()):
@@ -1880,6 +1893,8 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
         app.quit()
 
     def wait_until(predicate, callback, message: str) -> None:
+        waiting_for["message"] = message
+
         def check() -> None:
             if result["done"]:
                 return
@@ -2345,7 +2360,9 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
             return
         exercise_input()
 
-    timeout.timeout.connect(lambda: fail("等待动作流程完成超时"))
+    timeout.timeout.connect(
+        lambda: fail(f"等待动作流程完成超时（当前步骤：{waiting_for['message']}）")
+    )
     timeout.start(30000)
 
     if raw_recovery_kind is not None:
