@@ -8,9 +8,10 @@
 - Screen/taskbar/ordinary-window edge docking, following moving windows, and sleep support based on the visible body outline.
 - Pillow release transitions and independent hit, thaw, and pillow-petal effects.
 - Manifest-driven frame loading and a bounded animation cache.
-- 144 regression tests pass from a source-only archive without local game files; the Windows GitHub Actions source checks also pass.
+- 147 regression tests pass locally, including native Windows window-capture checks; the default Windows CI run has 146 passed and 1 skipped, without local game files.
 - Windows x64 portable ZIP built in a clean project-local environment, with all 5,604 referenced images and dependency license texts.
 - Packaged executable smoke checks pass both in the bundle folder and after ZIP extraction into a Chinese/space-containing path: 99 clips, 55 clip names, 30 complete actions, and 5,603 animation/effect frames.
+- Separate capture window with a fixed 620×616 canvas, synchronized pet/effect frames, and selectable green/blue/magenta backgrounds for streaming software.
 - Bilingual build/download guides and a public source repository.
 
 ## Release
@@ -19,6 +20,7 @@
 
 ## Later
 
+- Test window capture and chroma key end-to-end in OBS and Bilibili Live Companion on Windows.
 - Try more window arrangements and mixed-DPI monitors during everyday use.
 - Refine pillow motion and the timing of discoveries from play feedback.
 - Walking and running currently stay in place; consider movement as a separate interaction milestone.

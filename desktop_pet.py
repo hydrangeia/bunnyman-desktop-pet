@@ -436,6 +436,8 @@ def make_window(manifest: PetManifest):
             self.snap_reference_rect: Rect | None = None
             self.snap_surfaces: list[Surface] = []
             self._native_monitors = native_monitor_rects()
+            self.capture_window = None
+            self.capture_background = "green"
 
             self.setWindowTitle("DST 兔人桌宠")
             self.setWindowFlags(
@@ -596,6 +598,7 @@ def make_window(manifest: PetManifest):
                 self.effect_label.hide()
                 self.current_effect_region = None
                 self._apply_composite_mask()
+                self._publish_capture_frame()
                 return
             pixmap = self.current_effect_frames[self.current_effect_index]
             if self.current_mirror:
@@ -604,6 +607,7 @@ def make_window(manifest: PetManifest):
             self.effect_label.show()
             self.current_effect_region = self._effect_region(self.current_effect_index)
             self._apply_composite_mask()
+            self._publish_capture_frame()
 
         def play_effect(self, effect_name: str) -> None:
             if effect_name not in self.manifest.effects:
@@ -706,6 +710,67 @@ def make_window(manifest: PetManifest):
                 self._apply_composite_mask()
             if self._is_sleeping_pose():
                 self._maintain_sleep_support()
+            self._publish_capture_frame()
+
+        def _capture_canvas(self) -> tuple[int, int]:
+            if self.manifest.canvas is not None:
+                return tuple(max(1, round(value)) for value in self.manifest.canvas)
+            if self.current_clip is not None:
+                paths = self.current_clip.frames.get(self.current_skin)
+                if paths:
+                    pixmap = QPixmap(str(paths[min(self.current_index, len(paths) - 1)]))
+                    if not pixmap.isNull():
+                        return pixmap.width(), pixmap.height()
+            return self.display_size, self.display_size
+
+        def _publish_capture_frame(self) -> None:
+            capture = self.capture_window
+            if capture is None or not capture.isVisible() or self.current_clip is None:
+                return
+            body_paths = self.current_clip.frames.get(self.current_skin)
+            if not body_paths:
+                return
+            body_path = body_paths[min(self.current_index, len(body_paths) - 1)]
+            effect_path = None
+            if self.current_effect is not None:
+                effect = self.manifest.effects.get(self.current_effect)
+                if effect is not None and effect.frames:
+                    effect_path = effect.frames[
+                        min(self.current_effect_index, len(effect.frames) - 1)
+                    ]
+            capture.set_frame_paths(body_path, effect_path, self.current_mirror)
+
+        def toggle_capture_window(self, enabled: bool) -> None:
+            if not enabled:
+                if self.capture_window is not None:
+                    self.capture_window.hide()
+                return
+            if self.capture_window is None:
+                from capture_window import CaptureWindow
+
+                capture = CaptureWindow(
+                    canvas=self._capture_canvas(),
+                    icon=QApplication.windowIcon(),
+                )
+                self.capture_window = capture
+                capture.destroyed.connect(
+                    lambda *_args, owner=self, target=capture: setattr(
+                        owner, "capture_window", None
+                    )
+                    if owner.capture_window is target
+                    else None
+                )
+                capture.set_background(self.capture_background)
+            self.capture_window.showNormal()
+            self.capture_window.raise_()
+            self._publish_capture_frame()
+
+        def set_capture_background(self, color: str) -> None:
+            if color not in {"green", "blue", "magenta"}:
+                return
+            self.capture_background = color
+            if self.capture_window is not None:
+                self.capture_window.set_background(color)
 
         def _body_visible_rect(self) -> Rect:
             region = self.current_body_region
@@ -927,6 +992,8 @@ def make_window(manifest: PetManifest):
         def closeEvent(self, event) -> None:  # noqa: N802 - Qt event name
             self.snap_timer.stop()
             self._detach_snap()
+            if self.capture_window is not None:
+                self.capture_window.close()
             super().closeEvent(event)
 
         def _has_name(self, name: str) -> bool:
@@ -1240,6 +1307,35 @@ def make_window(manifest: PetManifest):
             feed_action = menu.addAction("喂胡萝卜")
             feed_action.triggered.connect(lambda: self._user_reaction("feed"))
 
+            capture_action = menu.addAction("直播采集窗口")
+            capture_action.setCheckable(True)
+            capture_action.setChecked(
+                self.capture_window is not None and self.capture_window.isVisible()
+            )
+            capture_action.toggled.connect(self.toggle_capture_window)
+
+            background_menu = menu.addMenu("采集背景")
+            background_group = QActionGroup(background_menu)
+            background_group.setExclusive(True)
+            selected_background = (
+                self.capture_window.background_key
+                if self.capture_window is not None
+                else self.capture_background
+            )
+            for color, label in (
+                ("green", "绿幕"),
+                ("blue", "蓝幕"),
+                ("magenta", "品红幕"),
+            ):
+                background_action = background_menu.addAction(label)
+                background_action.setCheckable(True)
+                background_action.setChecked(color == selected_background)
+                background_group.addAction(background_action)
+                background_action.triggered.connect(
+                    lambda _checked=False, chosen=color: self.set_capture_background(chosen)
+                )
+            menu.addSeparator()
+
             auto_action = menu.addAction("自动活动")
             auto_action.setCheckable(True)
             auto_action.setChecked(self.policy.enabled)
@@ -1515,6 +1611,101 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
         )
         window._activate(window.controller.current.clip, window.controller.current.mode)
 
+    # The optional capture window mirrors source paths without inheriting the
+    # desktop pet's size, transparency, mask, or movement.
+    window.toggle_capture_window(True)
+    capture = window.capture_window
+    if capture is None or not capture.isVisible():
+        raise AssertionError("直播采集窗口没有显示")
+    if (
+        capture.windowFlags() & Qt.WindowType.WindowType_Mask
+    ) != Qt.WindowType.Window:
+        raise AssertionError("采集窗口被标记为 Tool，无法稳定单独采集")
+    if capture.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
+        raise AssertionError("采集窗口背景不是不透明画布")
+    if capture.minimumSize() != capture.maximumSize():
+        raise AssertionError("采集窗口没有固定画布尺寸")
+
+    captured_paths: list[tuple[Path, Path | None, bool]] = []
+    original_set_frame_paths = capture.set_frame_paths
+
+    def record_capture_frame(body_path: Path, effect_path: Path | None, mirror: bool):
+        captured_paths.append((body_path, effect_path, mirror))
+        original_set_frame_paths(body_path, effect_path, mirror)
+
+    capture.set_frame_paths = record_capture_frame
+
+    def expected_capture_body() -> Path:
+        paths = window.current_clip.frames[window.current_skin]
+        return paths[min(window.current_index, len(paths) - 1)]
+
+    window._publish_capture_frame()
+    if not captured_paths or captured_paths[-1][0] != expected_capture_body():
+        raise AssertionError("采集窗口没有接收当前角色源帧路径")
+    capture_size = capture.size()
+    original_size = window.display_size
+    original_skin = window.skin
+    original_direction = window.direction
+    alternate_skin = next(
+        (skin_id for skin_id in manifest.skins if skin_id != original_skin),
+        original_skin,
+    )
+    window.set_skin(alternate_skin)
+    if captured_paths[-1][0] != expected_capture_body():
+        raise AssertionError("切换外观没有同步到采集窗口")
+    window.set_direction("left")
+    if (
+        captured_paths[-1][0] != expected_capture_body()
+        or captured_paths[-1][2] != window.current_mirror
+    ):
+        raise AssertionError("切换朝向没有同步源帧或镜像状态")
+    window.set_display_size(360 if original_size != 360 else 680)
+    if capture.size() != capture_size:
+        raise AssertionError("调整桌宠大小改变了采集画布尺寸")
+    window.set_display_size(original_size)
+    window.set_direction(original_direction)
+    window.set_skin(original_skin)
+    if capture.size() != capture_size:
+        raise AssertionError("恢复桌宠大小改变了采集画布尺寸")
+
+    for clip_name, effect_name, start_index in (
+        ("hit", "hit", 0),
+        ("frozen_loop_pst", "thaw", 0),
+        ("atk_object", "pillow", 9),
+    ):
+        if effect_name not in manifest.effects or not window._has_name(clip_name):
+            continue
+        window._activate(clip_name, "once", start_index)
+        if (
+            window.current_effect != effect_name
+            or captured_paths[-1][1] != manifest.effects[effect_name].frames[0]
+        ):
+            raise AssertionError(f"{effect_name} 特效没有同步到采集窗口")
+        while window.current_effect is not None:
+            window._advance_effect_frame()
+        if captured_paths[-1][1] is not None:
+            raise AssertionError(f"{effect_name} 特效结束后没有清除采集层")
+    window.controller = ActionController(
+        manifest.names, default_idle=manifest.default_animation
+    )
+    window._activate(window.controller.current.clip, window.controller.current.mode)
+
+    window.set_capture_background("blue")
+    if capture.background_key != "blue":
+        raise AssertionError("采集背景选项没有传给采集窗口")
+    window.toggle_capture_window(False)
+    if capture.isVisible():
+        raise AssertionError("菜单关闭采集窗后它仍然可见")
+    window.toggle_capture_window(True)
+    capture = window.capture_window
+    if capture is None or not capture.isVisible():
+        raise AssertionError("采集窗口隐藏后无法重新打开")
+    capture.close()
+    app.processEvents()
+    if not window.isVisible():
+        raise AssertionError("关闭采集副窗时意外关闭了桌宠主窗")
+    window.toggle_capture_window(True)
+
     # Sleep docking always chooses a floor, and drag input temporarily owns position.
     smoke_screen = Surface("screen:smoke", Rect(-1000, -1000, 2000, 1200), "screen")
     window.snap_enabled = True
@@ -1667,6 +1858,11 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
     def finish() -> None:
         if result["done"]:
             return
+        capture = window.capture_window
+        window.close()
+        if window.isVisible() or (capture is not None and capture.isVisible()):
+            fail("关闭桌宠主窗时没有同时关闭采集副窗")
+            return
         result["done"] = True
         result["code"] = 0
         action_count = sum(
@@ -1678,7 +1874,8 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
             f"{action_count} complete actions, {frame_count} animation/effect frames at "
             f"{canvas[0]}x{canvas[1]}; controller flows, raw preview, "
             "skin/direction, click/double-click/hover/feed/drop, ear/belly taps, "
-            "wheel/shake, manual sleep, floor docking, effect mask, and 8-clip LRU verified"
+            "wheel/shake, manual sleep, floor docking, capture-window sync/lifecycle, "
+            "effect mask, and 8-clip LRU verified"
         )
         app.quit()
 

@@ -6,7 +6,9 @@ Keep a Don't Starve Together rabbit in the corner of your desktop. It notices ta
 
 ## Download and launch
 
-Download the [Windows x64 portable bundle](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required. Keep the `_internal` folder, `manifest.json`, and image folders beside the executable. Older versions are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
+Download the [Windows x64 full bundle for v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required. Keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
+
+If you already have the complete v0.1.0 installation, download the [v0.1.0 → v0.1.1 update ZIP](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip). Exit the pet, extract the update into the existing `BunnymanDesktopPet` program folder, confirm overwriting files with the same names, and start it again. This update requires a complete v0.1.0 install; use the full bundle for earlier or incomplete installs. The update does not delete other files in the program folder. Older versions are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
 
 The default look is a rabbit in a sleep cap, near the bottom of the screen, with its feet grounded to the actual body outline. The pet is a transparent, frameless window that stays above ordinary windows. It can snap to screen, taskbar, and regular window edges and follow a window as it moves. The right-click menu offers feeding, activity style and automatic activity, snapping, looks, size, and exit.
 
@@ -27,6 +29,22 @@ To choose an action or facing directly, open “Developer preview” in the righ
 Four taps within two seconds trigger hit sparks. Three downward wheel notches freeze the rabbit for four seconds before the ice shatters; scroll up to thaw it sooner. Shake it while dragging and releasing for a special reaction. Double-clicking starts with a dance, then leads to jumps, pillow play, and burrowing. Automatic activity runs only while idle and waits while an action is playing, while you are dragging, or while a menu is open.
 
 </details>
+
+## Capture the rabbit in OBS or Bilibili Live Companion
+
+Check “直播采集窗口” in the pet's right-click menu to open a normal Windows window titled “兔人桌宠 · 直播采集”. It always uses a fixed 620×616 canvas for the pet and its effects, independent of the main pet's size and screen position. Right-click the capture window, or use “采集背景” in the pet menu, to switch between green, blue, and magenta. Choose a color that does not blend into your scene, then key it out in your streaming software. You can place the capture window behind other windows, but keep it open and do not minimize it; minimizing may freeze or black out the capture.
+
+### OBS
+
+1. Open the capture window. Add a Window Capture source to your OBS scene and select “兔人桌宠 · 直播采集”. If the title bar appears, enable client-area-only capture or crop the borders in the source.
+2. Open the source filters, add Chroma Key, and select the same color as the capture window. Adjust Similarity, Smoothness, and spill reduction until the background disappears while the rabbit's edges remain clean.
+
+### Bilibili Live Companion
+
+1. Add a window-capture source to the scene and select “兔人桌宠 · 直播采集”.
+2. If your version offers a chroma-key or green-screen effect for that source, choose the capture window's color and check the preview. If there is no suitable filter, key and composite the scene in OBS, then stream to Bilibili from OBS.
+
+Native Windows enumeration and client-area capture checks pass. End-to-end capture and keying in OBS and Live Companion still need testing in those applications. See the [OBS Window Capture guide](https://obsproject.com/kb/window-capture-sources), [OBS Chroma Key guide](https://obsproject.com/kb/chroma-key-filter), and [Bilibili's official streaming guide](https://live.bilibili.com/blackboard/era/u4EPvXpDYUMv7hYJ.html).
 
 ## Build from source
 

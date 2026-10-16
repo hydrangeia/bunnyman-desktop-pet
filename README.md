@@ -6,7 +6,9 @@
 
 ## 下载与启动
 
-下载 [Windows x64 便携包](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。它不需要另装 Python；请保留 ZIP 解压后的 `_internal` 文件夹和 `manifest.json`、图片资源目录。历史版本见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
+下载 [Windows x64 完整包 v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。它不需要另装 Python；请保留 ZIP 解压后的 `_internal` 文件夹和 `manifest.json`、图片资源目录。
+
+如果你已经安装了完整的 v0.1.0，可以下载 [v0.1.0 → v0.1.1 更新包](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip)。先退出兔人，把更新包解压到已有的 `BunnymanDesktopPet` 程序文件夹，确认覆盖同名文件后再启动。更新包只适用于完整的 v0.1.0；更早或不完整的安装请使用完整包。更新包不会删除程序目录里的其他文件。历史版本见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
 
 桌宠默认是睡帽兔人，会贴近屏幕底部，脚底按身体实际轮廓落地。它是透明无边框的小窗，保持在普通窗口上方；可吸附到屏幕、任务栏和普通窗口的边缘，并随窗口移动。右键菜单里可以喂食、切换陪伴节奏和自动活动、开关吸附、调整外观和大小，或退出。
 
@@ -27,6 +29,22 @@
 两秒内轻点四次会触发受击火花；向下滚轮三格会冻结四秒再碎冰解冻，向上滚轮可提前解冻。拖动时来回甩动再松手会触发特别回应。双击会从跳舞开始，继续探索可以遇到跳跃、枕头互动和钻地。自动活动只在待机时触发，不会打断动作、拖动或打开的菜单。
 
 </details>
+
+## 用 OBS 或直播姬单独采集
+
+在桌宠右键菜单勾选“直播采集窗口”，会打开一个普通 Windows 窗口，标题为“兔人桌宠 · 直播采集”。它始终使用固定 620×616 画布显示与主桌宠同步的动作和特效，不受主桌宠大小或屏幕位置影响。右键采集窗，或使用主菜单里的“采集背景”，可以在绿、蓝、品红之间切换；选一种不会和场景内容混在一起的颜色，再在直播软件里用色度键抠除。采集窗可以放到其他窗口后面，但要保持打开且不要最小化；最小化可能让捕获画面停住或变黑。
+
+### OBS
+
+1. 打开采集窗，在 OBS 场景的来源中添加“窗口捕获”，选择“兔人桌宠 · 直播采集”。如果带入了标题栏，选择仅捕获客户区，或在来源中裁掉边框。
+2. 打开该来源的滤镜，添加 Chroma Key（色度键）并选择与采集窗相同的颜色。调节相似度、平滑度和溢色抑制，让背景消失，同时保留兔人边缘。
+
+### 哔哩哔哩直播姬
+
+1. 在场景中添加窗口捕获来源，选择“兔人桌宠 · 直播采集”。
+2. 如果当前版本提供色度抠图或绿幕效果，给这个来源选择与采集窗相同的颜色，再检查预览。如果没有合适的滤镜，可以在 OBS 中完成抠色和场景合成，再由 OBS 推流到 B 站。
+
+已通过 Windows 原生窗口枚举和客户端捕获检查，OBS、直播姬中的完整采集和抠色仍待实机试用。可参考 [OBS 窗口捕获说明](https://obsproject.com/kb/window-capture-sources)、[OBS Chroma Key 滤镜说明](https://obsproject.com/kb/chroma-key-filter) 和 [B站官方开播指南](https://live.bilibili.com/blackboard/era/u4EPvXpDYUMv7hYJ.html)。
 
 ## 从源码构建
 

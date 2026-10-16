@@ -27,6 +27,7 @@ HIDDEN_IMPORTS = (
     "action_controller",
     "interaction_policy",
     "snap_geometry",
+    "capture_window",
     "PySide6.QtCore",
     "PySide6.QtGui",
     "PySide6.QtWidgets",
