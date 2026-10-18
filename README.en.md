@@ -6,11 +6,11 @@ Keep a Don't Starve Together rabbit in the corner of your desktop. It notices ta
 
 ## Download and launch
 
-For a first-time install, download the [Windows x64 full bundle for v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required; keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
+For a first-time install, download the [Windows x64 full bundle for v0.1.2](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required; keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
 
-If you already have the complete v0.1.0 installation, use the [standalone updater, about 5 MB](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-updater.exe): double-click it, select your original `BunnymanDesktopPet.exe`, then click “更新并重启” (Update and restart). It checks the installed resources and patch, closes the pet in that folder, backs up and replaces files, then restarts it. Failed file replacements restore the backup. The updater itself does not require Python.
+If you already have a complete v0.1.0 or v0.1.1 installation, use the [standalone updater, about 8 MB](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.2/BunnymanDesktopPet-v0.1.x-to-v0.1.2-updater.exe): double-click it, select your original `BunnymanDesktopPet.exe`, then click “更新并重启” (Update and restart). It checks the installed resources and patch, closes the pet in that folder, backs up and replaces files, then restarts it. Failed file replacements restore the backup. The updater itself does not require Python.
 
-The [v0.1.0 → v0.1.1 manual overlay ZIP](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip) is only for manual file replacement. It cannot run by itself and is not a full pet bundle. It does not include the Python runtime; if you accidentally try to run a file from the ZIP and see a missing `python313.dll` message, do not install Python. This update is only for a complete v0.1.0 installation: exit the pet, extract the ZIP into the existing `BunnymanDesktopPet` program folder, and confirm replacing same-named files. If you do not have the complete program folder, download the full bundle above. Older versions are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
+If you previously ran a manual patch as a complete program and saw a missing `python313.dll` message, download the full bundle above. Older versions and manual overlays are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
 
 The default look is a rabbit in a sleep cap, near the bottom of the screen, with its feet grounded to the actual body outline. The pet is a transparent, frameless window that stays above ordinary windows. It can snap to screen, taskbar, and regular window edges and follow a window as it moves. The right-click menu offers feeding, activity style and automatic activity, snapping, looks, size, and exit.
 
@@ -21,14 +21,16 @@ The default look is a rabbit in a sleep cap, near the bottom of the screen, with
 - Drag with the left mouse button and release for a drop reaction. Pause over the rabbit and it will notice you.
 - The mouse wheel can trigger a freeze-and-thaw interaction.
 - Turn automatic activity off in the right-click menu, or choose “Quiet company.” The default “Lively and friendly” style adds occasional idle actions and a short nap after a quiet spell. If you put it to sleep yourself, wake it manually.
-- Sleeping starts with lying down and ends with waking up; burrowing includes coming back up, and jumps finish with a landing. Walking and running currently play in place.
+- While the rabbit is idle, gently move the mouse nearby and it may silently look your way or rub an ear. In Lively mode, it may take a few short steps toward the mouse along a safe route, then stop happily or give up with an ear rub and rest for a while. It will not keep following a parked pointer. Quiet company gives only a small notice response; turning automatic activity off also disables proximity play, while explicit taps and hovering still work.
+- These short moves stay horizontal along existing top or bottom supporting edges of windows or screens, or within the screen work area. The rabbit never hops across windows or screens. Proximity play waits while it sleeps, a menu is open, you drag it, or a manual action is already queued. Walking and running in Developer preview still play in place.
+- Sleeping starts with lying down and ends with waking up; burrowing includes coming back up, and jumps finish with a landing.
 
 To choose an action or facing directly, open “Developer preview” in the right-click menu for complete actions and raw clips. Most of the time, there is no need to open it.
 
 <details>
 <summary>Hidden interaction hints</summary>
 
-Four taps within two seconds trigger hit sparks. Three downward wheel notches freeze the rabbit for four seconds before the ice shatters; scroll up to thaw it sooner. Shake it while dragging and releasing for a special reaction. Double-clicking starts with a dance, then leads to jumps, pillow play, and burrowing. Automatic activity runs only while idle and waits while an action is playing, while you are dragging, or while a menu is open.
+Four taps within two seconds trigger hit sparks. Three downward wheel notches freeze the rabbit for four seconds before the ice shatters; scroll up to thaw it sooner. Shake it while dragging and releasing for a special reaction. Double-clicking starts with a dance, then leads to jumps, pillow play, and burrowing. Automatic activity and proximity play run only while idle; they wait while the rabbit sleeps, while an action is playing, while you are dragging it, while a menu is open, or while a manual action is queued.
 
 </details>
 

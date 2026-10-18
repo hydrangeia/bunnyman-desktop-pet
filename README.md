@@ -6,11 +6,11 @@
 
 ## 下载与启动
 
-首次使用，请下载 [Windows x64 完整包 v0.1.1](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。无需另装 Python；请保留 `_internal` 文件夹、`manifest.json` 和图片资源目录。
+首次使用，请下载 [Windows x64 完整包 v0.1.2](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。无需另装 Python；请保留 `_internal` 文件夹、`manifest.json` 和图片资源目录。
 
-如果你已经安装了完整的 v0.1.0，使用 [约 5 MB 的独立更新器](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-updater.exe)：双击运行，选择原来的 `BunnymanDesktopPet.exe`，再点击“更新并重启”。它会检查旧版资源和补丁，关闭对应的兔人、备份并替换文件，再重新启动；文件替换失败会自动恢复备份。更新器本身无需 Python。
+如果你已经安装了完整的 v0.1.0 或 v0.1.1，使用 [约 8 MB 的独立更新器](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.2/BunnymanDesktopPet-v0.1.x-to-v0.1.2-updater.exe)：双击运行，选择原来的 `BunnymanDesktopPet.exe`，再点击“更新并重启”。它会检查旧版资源和补丁，关闭对应的兔人、备份并替换文件，再重新启动；文件替换失败会自动恢复备份。更新器本身无需 Python。
 
-[v0.1.0 → v0.1.1 手动覆盖包](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-v0.1.0-to-v0.1.1-update.zip)只供手动覆盖使用，不能单独运行，也不是完整桌宠。它不包含 Python 运行库；如果误把 ZIP 里的文件当程序运行并看到缺少 `python313.dll`，无需安装 Python。只有完整 v0.1.0 安装适用此更新：先退出兔人，再把 ZIP 解压到已有的 `BunnymanDesktopPet` 程序文件夹并确认覆盖同名文件。缺少完整程序文件时，请下载上面的完整包。历史版本见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
+如果之前误把手动补丁当完整程序运行，看到缺少 `python313.dll`，请下载上面的完整包。历史版本和手动覆盖包见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
 
 桌宠默认是睡帽兔人，会贴近屏幕底部，脚底按身体实际轮廓落地。它是透明无边框的小窗，保持在普通窗口上方；可吸附到屏幕、任务栏和普通窗口的边缘，并随窗口移动。右键菜单里可以喂食、切换陪伴节奏和自动活动、开关吸附、调整外观和大小，或退出。
 
@@ -21,14 +21,16 @@
 - 按住左键拖动兔人，松开会回应放下；停在兔人身上一会儿，它也会注意到你。
 - 滚轮能触发冰冻和解冻互动。
 - 右键菜单可以关闭自动活动，或切换为“安静陪伴”。默认“活泼亲人”会在待机时偶尔做小动作；无人互动一阵子后会短暂打盹。手动选择睡觉后需要手动叫醒。
-- 睡觉会先躺下，离开睡眠时会醒来；钻地会再钻出来，跳跃会完整落地。走路和跑步目前只播放动画，不会带着桌宠移动。
+- 兔人待机时，你在它附近轻轻移动鼠标，它会安静地看向你或揉揉耳朵；活泼亲人模式下，有时还会沿安全路线朝鼠标走几步，再开心地停下，或放弃并揉揉耳朵，然后休息一会儿。它不会一直追着停住的鼠标。安静陪伴只会有轻微的注意回应；关闭自动活动也会关闭靠近互动，但轻点、悬停等手动互动仍可使用。
+- 这些短距离移动只沿现有窗口或屏幕的上、下支撑边缘，或在屏幕工作区域内水平进行，不会跳过窗口或屏幕。睡觉、打开菜单、拖动或已有手动动作时都不会触发。开发预览中的走路和跑步仍是原地动画。
+- 睡觉会先躺下，离开睡眠时会醒来；钻地会再钻出来，跳跃会完整落地。
 
 想自己挑动作或朝向，可以打开右键菜单里的“开发预览”，那里有完整动作和原始片段。大多数时候不用打开它。
 
 <details>
 <summary>想看隐藏互动提示</summary>
 
-两秒内轻点四次会触发受击火花；向下滚轮三格会冻结四秒再碎冰解冻，向上滚轮可提前解冻。拖动时来回甩动再松手会触发特别回应。双击会从跳舞开始，继续探索可以遇到跳跃、枕头互动和钻地。自动活动只在待机时触发，不会打断动作、拖动或打开的菜单。
+两秒内轻点四次会触发受击火花；向下滚轮三格会冻结四秒再碎冰解冻，向上滚轮可提前解冻。拖动时来回甩动再松手会触发特别回应。双击会从跳舞开始，继续探索可以遇到跳跃、枕头互动和钻地。自动活动和靠近互动只在待机时触发，不会打断睡觉、动作、拖动、打开的菜单或已排队的手动动作。
 
 </details>
 

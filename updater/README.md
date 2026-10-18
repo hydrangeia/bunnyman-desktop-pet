@@ -5,9 +5,11 @@ The assistant embeds a patch and its manifest in a Windows x64 .NET Framework ex
 From the project folder, with complete old/new portable folders available:
 
 ```powershell
-.\.build-venv\Scripts\python.exe build_updater.py --base dist\BunnymanDesktopPet --updated .build\v0.1.1\BunnymanDesktopPet --output .build\v0.1.1\BunnymanDesktopPet-v0.1.0-to-v0.1.1-updater.exe
+.\.build-venv\Scripts\python.exe build_updater.py --base dist\BunnymanDesktopPet --additional-base .build\v0.1.1\BunnymanDesktopPet --updated .build\v0.1.2\BunnymanDesktopPet --version 0.1.2 --output .build\v0.1.2\BunnymanDesktopPet-v0.1.x-to-v0.1.2-updater.exe
 .\.build-venv\Scripts\python.exe -m pytest -q test_updater.py --basetemp .build\updater-tests
 ```
+
+Repeat `--additional-base` to support more than one complete old version in the same assistant. The builder embeds the union of files that differ from any supported base, and records each supported executable hash. The full-download link uses `--version`.
 
 `--dry-run` prepares the payload without compiling. The output includes a SHA-256 sidecar. No game files are needed for the tests: they compile small fixtures and use synthetic resource manifests.
 

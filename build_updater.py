@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import uuid
@@ -39,23 +40,29 @@ def bundle_files(root: Path) -> dict[str, Path]:
     return result
 
 
-def prepare_payload(base: Path, updated: Path, work: Path, version: str) -> dict:
+def prepare_payload(base: Path, updated: Path, work: Path, version: str,
+                    additional_bases=()) -> dict:
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise ValueError("Version must have the form 0.1.2")
     before, after = bundle_files(base), bundle_files(updated)
+    baselines = [before, *(bundle_files(path) for path in additional_bases)]
     changes = []
     for relative, source in sorted(after.items()):
         digest = sha256(source)
-        if relative not in before or sha256(before[relative]) != digest:
+        if any(relative not in baseline or sha256(baseline[relative]) != digest
+               for baseline in baselines):
             changes.append({"path": relative, "sha256": digest})
     if not changes:
         raise ValueError("The two bundles are identical")
     config = {
         "version": version,
         "app_exe": APP_EXE,
-        "full_download_url": "https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.1/BunnymanDesktopPet-windows-x64.zip",
+        "full_download_url": f"https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v{version}/BunnymanDesktopPet-windows-x64.zip",
         "allowed_base_exe_sha256": list(dict.fromkeys([
-            sha256(before[APP_EXE]), sha256(after[APP_EXE]),
+            *(sha256(baseline[APP_EXE]) for baseline in baselines), sha256(after[APP_EXE]),
         ])),
-        "required_runtime_files": sorted(name for name in before if name.startswith("_internal/")),
+        "required_runtime_files": sorted(name for name in before if name.startswith("_internal/")
+                                         and all(name in baseline for baseline in baselines)),
         "test_mode": False,
         "files": changes,
     }
@@ -98,19 +105,22 @@ def compile_updater(work: Path, output: Path, compiler: Path | None = None) -> N
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", type=Path, required=True, help="complete old portable program folder")
+    parser.add_argument("--additional-base", type=Path, action="append", default=[],
+                        help="another supported complete old folder (can be repeated)")
     parser.add_argument("--updated", type=Path, required=True, help="complete new portable program folder")
     parser.add_argument("--output", type=Path, required=True, help="standalone update assistant .exe")
-    parser.add_argument("--version", default="0.1.1")
+    parser.add_argument("--version", default="0.1.2")
     parser.add_argument("--compiler", type=Path)
     parser.add_argument("--dry-run", action="store_true", help="prepare and validate the patch without compiling")
     args = parser.parse_args(argv)
     try:
         output = args.output.resolve()
-        for source in (args.base.resolve(), args.updated.resolve()):
+        for source in (args.base.resolve(), args.updated.resolve(),
+                       *(path.resolve() for path in args.additional_base)):
             if output.is_relative_to(source):
                 raise ValueError("Updater output must be outside both portable folders")
         work = ROOT / ".build" / "updater" / uuid.uuid4().hex[:8]
-        config = prepare_payload(args.base, args.updated, work, args.version)
+        config = prepare_payload(args.base, args.updated, work, args.version, args.additional_base)
         if not args.dry_run:
             compile_updater(work, output, args.compiler)
         print(json.dumps({"files": len(config["files"]), "payload_bytes": (work / "payload.zip").stat().st_size,

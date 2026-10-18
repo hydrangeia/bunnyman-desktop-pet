@@ -374,6 +374,7 @@ def validate_manifest_frames(manifest: PetManifest) -> tuple[int, tuple[int, int
 
 def make_window(manifest: PetManifest):
     from action_controller import ActionController
+    from cursor_play import CursorPlay
     from interaction_policy import InteractionPolicy
     from PySide6.QtCore import QEvent, QPoint, QRect, QTimer, Qt
     from PySide6.QtGui import QActionGroup, QBitmap, QCursor, QImage, QPixmap
@@ -416,6 +417,14 @@ def make_window(manifest: PetManifest):
                 manifest.names, default_idle=manifest.default_animation
             )
             self.policy = InteractionPolicy(style="lively")
+            self.cursor_play = CursorPlay()
+            self._cursor_walk_owned = False
+            self._cursor_reference = None
+            self._cursor_body_reference = None
+            self._cursor_support_id = None
+            self._cursor_fraction = 0.0
+            self._cursor_envelopes = {}
+            self._cursor_rebase_on_idle = False
             self.raw_mode = False
             self.pixmap_cache: OrderedDict[tuple[str, str], dict[str, Any]] = OrderedDict()
             self.play_history: list[str] = []
@@ -480,6 +489,9 @@ def make_window(manifest: PetManifest):
             self.policy_timer.setInterval(400)
             self.policy_timer.timeout.connect(self._tick_policy)
             self.policy_timer.start()
+            self.cursor_timer = QTimer(self)
+            self.cursor_timer.setInterval(100)
+            self.cursor_timer.timeout.connect(self._tick_cursor_play)
             self.snap_timer = QTimer(self)
             self.snap_timer.setInterval(250)
             self.snap_timer.timeout.connect(self._update_snap)
@@ -842,6 +854,7 @@ def make_window(manifest: PetManifest):
             self.snap_reference_rect = None
 
         def set_snap_enabled(self, enabled: bool) -> None:
+            self._cancel_cursor_play()
             self.snap_enabled = bool(enabled)
             if not self.snap_enabled:
                 self.snap_timer.stop()
@@ -953,6 +966,9 @@ def make_window(manifest: PetManifest):
             if self.snap_anchor is not None:
                 if self._controller_is_idle():
                     reference = self._body_visible_rect()
+                    if self._cursor_rebase_on_idle:
+                        self._rebase_cursor_anchor(reference)
+                        self._cursor_rebase_on_idle = False
                     self.snap_reference_rect = reference
                 else:
                     reference = self.snap_reference_rect or self._body_visible_rect()
@@ -970,11 +986,14 @@ def make_window(manifest: PetManifest):
 
         def showEvent(self, event) -> None:  # noqa: N802 - Qt event name
             super().showEvent(event)
+            self.cursor_timer.start()
             if self.snap_enabled:
                 self.snap_timer.start()
                 QTimer.singleShot(0, self._update_snap)
 
         def hideEvent(self, event) -> None:  # noqa: N802 - Qt event name
+            self.cursor_timer.stop()
+            self._cancel_cursor_play()
             self.snap_timer.stop()
             self._detach_snap()
             super().hideEvent(event)
@@ -982,14 +1001,20 @@ def make_window(manifest: PetManifest):
         def changeEvent(self, event) -> None:  # noqa: N802 - Qt event name
             if event.type() == QEvent.Type.WindowStateChange:
                 if self.isMinimized():
+                    self.cursor_timer.stop()
+                    self._cancel_cursor_play()
                     self.snap_timer.stop()
                     self._detach_snap()
-                elif self.isVisible() and self.snap_enabled:
-                    self.snap_timer.start()
-                    QTimer.singleShot(0, self._update_snap)
+                elif self.isVisible():
+                    self.cursor_timer.start()
+                    if self.snap_enabled:
+                        self.snap_timer.start()
+                        QTimer.singleShot(0, self._update_snap)
             super().changeEvent(event)
 
         def closeEvent(self, event) -> None:  # noqa: N802 - Qt event name
+            self.cursor_timer.stop()
+            self._cancel_cursor_play()
             self.snap_timer.stop()
             self._detach_snap()
             if self.capture_window is not None:
@@ -1002,6 +1027,7 @@ def make_window(manifest: PetManifest):
         def request_action(self, action_id: str, user_initiated: bool = True) -> None:
             """Request a complete action from the controller, preserving clip sequences."""
             if user_initiated:
+                self._cancel_cursor_play()
                 self.policy.note_user_activity()
                 self.single_click_timer.stop()
                 self.hover_timer.stop()
@@ -1046,9 +1072,162 @@ def make_window(manifest: PetManifest):
                 idle=self._controller_is_idle(),
                 active_action=self.controller.active_action,
                 pending=self.controller.pending_action is not None,
-                blocked=self._policy_is_blocked(),
+                blocked=self._policy_is_blocked() or self.cursor_play.chasing,
             )
             self._dispatch_reaction(reaction)
+
+        def _cancel_cursor_play(self) -> None:
+            """Release only our walk; human requests keep their queue priority."""
+            self.cursor_play.cancel()
+            if self._cursor_walk_owned:
+                self._cursor_rebase_on_idle = True
+            if (
+                self._cursor_walk_owned
+                and self.controller.active_action == "walk"
+                and self.controller.pending_action is None
+            ):
+                step = self.controller.request("idle")
+                if step is not None:
+                    self._activate(step.clip, step.mode)
+            self._cursor_walk_owned = False
+            self._cursor_reference = None
+            self._cursor_body_reference = None
+            self._cursor_support_id = None
+            self._cursor_fraction = 0.0
+
+        def _rebase_cursor_anchor(self, reference) -> None:
+            surface = self._surface_for_anchor(self.snap_surfaces)
+            if (surface is not None and surface.rect.width > 0
+                    and self.snap_anchor.side in {"top", "bottom"}):
+                ratio = (self.x() + reference.center_x - surface.rect.left) / surface.rect.width
+                self.snap_anchor = Anchor(surface.id, self.snap_anchor.side,
+                                          max(0, min(1, ratio)))
+
+        def _cursor_movement_bounds(self):
+            """Stay on this monitor and the same horizontal supporting surface."""
+            reference = self._cursor_reference or self._body_visible_rect()
+            center = QPoint(round(self.x() + reference.center_x),
+                            round(self.y() + reference.center_y))
+            screen = QApplication.screenAt(center)
+            if screen is None:
+                return None
+            area = screen.availableGeometry()
+            left, right = area.x(), area.x() + area.width()
+            if (self.y() + reference.top < area.y()
+                    or self.y() + reference.bottom > area.y() + area.height()):
+                return None
+            support_id = f"screen:{screen.name()}"
+            if self.snap_anchor is not None:
+                surface = self._surface_for_anchor(self.snap_surfaces)
+                if surface is None or self.snap_anchor.side not in {"top", "bottom"}:
+                    return None
+                support_id = surface.id
+                left = max(left, surface.rect.left)
+                right = min(right, surface.rect.right)
+            if self._cursor_support_id is not None and support_id != self._cursor_support_id:
+                return None
+            minimum, maximum = left - reference.left, right - reference.right
+            if minimum > maximum or not minimum - 1 <= self.x() <= maximum + 1:
+                return None
+            return minimum, maximum, support_id
+
+        def _cursor_walk_rect(self):
+            """Reserve enough horizontal room for either facing and every stride."""
+            reference = self._body_visible_rect()
+            key = (self.skin, self.display_size)
+            if key not in self._cursor_envelopes:
+                left, right = reference.left, reference.right
+                for name in ("walk_pre", "walk_loop", "walk_pst"):
+                    for direction in ("left", "right"):
+                        clip, skin, mirror = choose_variant(self.manifest, name, direction, self.skin)
+                        entry = self._load_segment(clip, skin)
+                        for index, pixmap in enumerate(entry["frames"]):
+                            region_key = (index, mirror)
+                            region = entry["regions"].get(region_key)
+                            if region is None:
+                                region = self._alpha_region(pixmap, mirror)
+                                region.translate((self.display_size - pixmap.width()) // 2,
+                                                 (self.display_size - pixmap.height()) // 2)
+                                entry["regions"][region_key] = region
+                            bounds = region.boundingRect()
+                            if not bounds.isEmpty():
+                                left = min(left, bounds.x())
+                                right = max(right, bounds.x() + bounds.width())
+                self._cursor_envelopes[key] = (left, right)
+            left, right = self._cursor_envelopes[key]
+            return Rect(min(reference.left, left), reference.top,
+                        max(reference.right, right), reference.bottom)
+
+        def _tick_cursor_play(self, pointer=None, now=None) -> None:
+            blocked = (
+                not self.isVisible() or self.isMinimized()
+                or self._policy_is_blocked()
+                or QApplication.mouseButtons() != Qt.MouseButton.NoButton
+            )
+            if blocked or not self.policy.enabled:
+                self._cancel_cursor_play()
+                return
+            bounds = self._cursor_movement_bounds()
+            position = QCursor.pos() if pointer is None else pointer
+            body = (self._cursor_body_reference or self._body_visible_rect()).translated(
+                self.x(), self.y())
+            cue = self.cursor_play.tick(
+                pointer=(position.x(), position.y()), body=body,
+                idle=self._controller_is_idle(),
+                active_action=self.controller.active_action,
+                pending=self.controller.pending_action is not None,
+                blocked=blocked, enabled=self.policy.enabled,
+                style=self.policy.style,
+                can_move=bounds is not None and "walk" in self.controller.actions,
+                now=now,
+            )
+            if cue is None:
+                return
+            if cue.action == "walk":
+                if bounds is None:
+                    return
+                self._cursor_body_reference = self._body_visible_rect()
+                self._cursor_reference = self._cursor_walk_rect()
+                self._cursor_support_id = bounds[2]
+                bounds = self._cursor_movement_bounds()
+                if bounds is None:
+                    self._cancel_cursor_play()
+                    return
+                self.snap_reference_rect = self._cursor_reference
+                self._rebase_cursor_anchor(self._cursor_reference)
+                self._cursor_walk_owned = True
+            if cue.direction and cue.direction != self.direction:
+                self.direction = cue.direction
+                self._refresh_current_variant()
+            if cue.action and cue.action in self.controller.actions:
+                self.policy.note_user_activity(now)
+                self.request_action(cue.action, user_initiated=False)
+                if cue.action != "walk":
+                    if self._cursor_walk_owned:
+                        self._cursor_rebase_on_idle = True
+                    self._cursor_walk_owned = False
+                    self._cursor_reference = None
+                    self._cursor_body_reference = None
+                    self._cursor_support_id = None
+                    self._cursor_fraction = 0.0
+            if (cue.dx and bounds is not None and self._cursor_walk_owned
+                    and self.controller.active_action == "walk"
+                    and self.controller.pending_action is None
+                    and self.current_name == "walk_loop"):
+                wanted = self.x() + cue.dx + self._cursor_fraction
+                target = max(bounds[0], min(bounds[1], wanted))
+                x = round(target)
+                self._cursor_fraction = target - x
+                self.move(x, self.y())
+                if self.snap_anchor is not None:
+                    surface = self._surface_for_anchor(self.snap_surfaces)
+                    if surface is not None:
+                        reference = self._cursor_reference
+                        ratio = (x + reference.center_x - surface.rect.left) / surface.rect.width
+                        self.snap_anchor = Anchor(surface.id, self.snap_anchor.side,
+                                                  max(0, min(1, ratio)))
+                if abs(target - wanted) > 0.01:
+                    self._cancel_cursor_play()
 
         def _dispatch_reaction(self, reaction) -> None:
             if reaction is None:
@@ -1059,6 +1238,7 @@ def make_window(manifest: PetManifest):
                 self.request_action(reaction.action, user_initiated=False)
 
         def _user_reaction(self, event: str) -> None:
+            self._cancel_cursor_play()
             if event != "pet":
                 self.single_click_timer.stop()
                 self.hover_timer.stop()
@@ -1103,6 +1283,7 @@ def make_window(manifest: PetManifest):
             """Play one raw manifest clip directly, bypassing action transitions."""
             if not self._has_name(name):
                 return
+            self._cancel_cursor_play()
             self.policy.note_user_activity()
             self.hover_timer.stop()
             self.raw_mode = True
@@ -1159,6 +1340,7 @@ def make_window(manifest: PetManifest):
         def set_skin(self, skin: str) -> None:
             if skin not in self.manifest.skins:
                 return
+            self._cancel_cursor_play()
             if skin != self.skin:
                 self.policy.note_user_activity()
             self.skin = skin
@@ -1167,6 +1349,7 @@ def make_window(manifest: PetManifest):
         def set_direction(self, direction: str) -> None:
             if direction not in {"front", "left", "right", "back"}:
                 return
+            self._cancel_cursor_play()
             if direction != self.direction:
                 self.policy.note_user_activity()
             self.direction = direction
@@ -1175,6 +1358,7 @@ def make_window(manifest: PetManifest):
         def set_display_size(self, size: int) -> None:
             if size not in {360, 520, 680} or size == self.display_size:
                 return
+            self._cancel_cursor_play()
             self.policy.note_user_activity()
             name, mode, index = (
                 self.current_name,
@@ -1198,6 +1382,7 @@ def make_window(manifest: PetManifest):
             self._activate(name, mode, index, preserve_effect=True)
 
         def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt event name
+            self._cancel_cursor_play()
             if event.button() == Qt.MouseButton.LeftButton:
                 self.hover_timer.stop()
                 if self.single_click_timer.isActive():
@@ -1223,6 +1408,7 @@ def make_window(manifest: PetManifest):
             super().mousePressEvent(event)
 
         def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt event name
+            self._cancel_cursor_play()
             if event.button() == Qt.MouseButton.LeftButton:
                 self.hover_timer.stop()
                 self.single_click_timer.stop()
@@ -1299,6 +1485,7 @@ def make_window(manifest: PetManifest):
             super().mouseReleaseEvent(event)
 
         def show_context_menu(self, position: QPoint) -> None:
+            self._cancel_cursor_play()
             self.menu_open = True
             self.single_click_timer.stop()
             self.hover_timer.stop()
@@ -1505,12 +1692,14 @@ def _key_event(key):
 def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas) -> int:
     """Exercise controller flows, raw previews, input, rendering, and cache bounds."""
     from action_controller import ActionController
+    from cursor_play import CursorPlay
     from interaction_policy import InteractionPolicy
     from PySide6.QtCore import QPoint, QTimer, Qt
     from PySide6.QtGui import QImage
     from snap_geometry import Anchor, Rect, Surface
 
     import numpy as np
+    import math
     import random
 
     names = set(manifest.names)
@@ -1523,6 +1712,7 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
     window.timer.setInterval(1)
     window.policy_timer.stop()
     window.policy.set_enabled(False)
+
     window.double_click_interval = 1
     window.snap_timer.stop()
     window.snap_enabled = False
@@ -1715,6 +1905,42 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
     window.policy = InteractionPolicy(style="lively", rng=random.Random(0))
     window.policy.set_enabled(False)
 
+    # Exercise the actual directional game frames, motion envelope, controller
+    # exits and frozen cursor-play import without moving the user's cursor.
+    if {"earrub", "walk", "happy", "abandon"} <= set(window.controller.actions):
+        window.cursor_timer.stop()
+        area = app.primaryScreen().availableGeometry()
+        window.move(area.x() + (area.width() - window.width()) // 2,
+                    area.y() + (area.height() - window.height()) // 2)
+        window.hover_timer.stop()
+        test_clock = [0.0]
+        window.cursor_play = CursorPlay(clock=lambda: test_clock[0], rng=random.Random(3))
+        window.policy = InteractionPolicy(clock=lambda: test_clock[0], rng=random.Random(4))
+        body = window._body_visible_rect().translated(window.x(), window.y())
+        start_x, start_y = window.x(), window.y()
+        visited = set()
+        for index in range(80):
+            test_clock[0] = index / 10
+            pointer = QPoint(round(body.right + body.width * 0.92 + 18 * math.sin(index * 0.7)),
+                             round(body.center_y + 15 * math.cos(index * 0.7)))
+            window._tick_cursor_play(pointer=pointer, now=test_clock[0])
+            visited.add(window.current_name)
+            for _ in range(3):
+                window.advance_frame()
+                visited.add(window.current_name)
+            window.timer.stop()
+            window.hover_timer.stop()
+        if not {"idle_earrub", "walk_pre", "walk_loop", "walk_pst"} <= visited:
+            raise AssertionError("鼠标互动没有完成注意、起步、追逐和收步")
+        if window.x() <= start_x or window.y() != start_y:
+            raise AssertionError("鼠标追逐没有在安全区域水平移动")
+        window._cancel_cursor_play()
+        window.cursor_play = CursorPlay()
+        window.policy = InteractionPolicy(style="lively", rng=random.Random(0))
+        window.policy.set_enabled(False)
+        window.controller = ActionController(manifest.names, default_idle=manifest.default_animation)
+        window._activate(window.controller.current.clip, window.controller.current.mode)
+
     # Sleep docking always chooses a floor, and drag input temporarily owns position.
     smoke_screen = Surface("screen:smoke", Rect(-1000, -1000, 2000, 1200), "screen")
     window.snap_enabled = True
@@ -1887,7 +2113,7 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
             f"{action_count} complete actions, {frame_count} animation/effect frames at "
             f"{canvas[0]}x{canvas[1]}; controller flows, raw preview, "
             "skin/direction, click/double-click/hover/feed/drop, ear/belly taps, "
-            "wheel/shake, manual sleep, floor docking, capture-window sync/lifecycle, "
+            "wheel/shake, cursor notice/chase/stop, manual sleep, floor docking, capture-window sync/lifecycle, "
             "effect mask, and 8-clip LRU verified"
         )
         app.quit()

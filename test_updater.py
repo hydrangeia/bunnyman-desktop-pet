@@ -52,6 +52,34 @@ def test_builder_refuses_an_incomplete_base(tmp_path):
         build_updater.prepare_payload(old, tmp_path / "new", tmp_path / "work", "0.1.1")
 
 
+def test_one_updater_covers_all_supported_baselines(tmp_path):
+    old = write_bundle(tmp_path / "old", b"v0")
+    middle = write_bundle(tmp_path / "middle", b"v1")
+    new = write_bundle(tmp_path / "new", b"v2")
+    # A file unchanged from the oldest base must still be restored for v1.
+    (middle / "README.md").write_bytes(b"intermediate guide")
+    config = build_updater.prepare_payload(old, new, tmp_path / "work", "0.1.2", [middle])
+    assert set(config["allowed_base_exe_sha256"]) == {digest(b"v0"), digest(b"v1"), digest(b"v2")}
+    assert {item["path"] for item in config["files"]} == {"BunnymanDesktopPet.exe", "README.md"}
+    assert "/v0.1.2/" in config["full_download_url"]
+    with zipfile.ZipFile(tmp_path / "work/payload.zip") as archive:
+        for base in (old, middle):
+            for relative, source in build_updater.bundle_files(new).items():
+                actual = archive.read(relative) if relative in archive.namelist() else (base / relative).read_bytes()
+                assert actual == source.read_bytes()
+
+
+def test_extra_baselines_must_be_complete_and_versions_plain(tmp_path):
+    old = write_bundle(tmp_path / "old")
+    new = write_bundle(tmp_path / "new", b"new")
+    extra = write_bundle(tmp_path / "extra")
+    (extra / "_internal/python313.dll").unlink()
+    with pytest.raises(ValueError, match="python313"):
+        build_updater.prepare_payload(old, new, tmp_path / "work", "0.1.2", [extra])
+    with pytest.raises(ValueError, match="Version"):
+        build_updater.prepare_payload(old, new, tmp_path / "work", "../latest")
+
+
 @pytest.fixture(scope="module")
 def native_helpers(tmp_path_factory):
     if os.name != "nt":
