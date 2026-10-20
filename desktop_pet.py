@@ -722,6 +722,8 @@ def make_window(manifest: PetManifest):
                 self._apply_composite_mask()
             if self._is_sleeping_pose():
                 self._maintain_sleep_support()
+            elif self._is_carrot_pose():
+                self._maintain_carrot_support()
             self._publish_capture_frame()
 
         def _capture_canvas(self) -> tuple[int, int]:
@@ -866,6 +868,28 @@ def make_window(manifest: PetManifest):
         def _is_sleeping_pose(self) -> bool:
             return self.current_name in {"sleep_pre", "sleep_loop", "sleep_pst"}
 
+        def _is_carrot_pose(self) -> bool:
+            return self.current_name in {
+                "carrot_offer", "carrot_place", "carrot_spin", "eat_carrot", "eat_carrot_spun",
+            }
+
+        def _maintain_carrot_support(self) -> bool:
+            """Keep bending hands and food above an attached window or taskbar."""
+            if (not self.snap_enabled or not self.isVisible() or self.isMinimized()
+                    or self.is_dragging or self.press_position is not None):
+                return False
+            surface = self._surface_for_anchor(self.snap_surfaces)
+            if surface is None:
+                return False
+            floor_side = "bottom" if surface.kind == "screen" else "top"
+            if self.snap_anchor.side != floor_side:
+                return False
+            reference = self.snap_reference_rect or self._body_visible_rect()
+            x, y = position_for_anchor(self.snap_anchor, surface, reference)
+            extra = max(0, self._body_visible_rect().bottom - reference.bottom)
+            self.move(x, round(y - extra))
+            return True
+
         def _classify_click(self, global_position: QPoint) -> str:
             local = self.mapFromGlobal(global_position)
             bounds = self.current_body_region.boundingRect()
@@ -960,6 +984,8 @@ def make_window(manifest: PetManifest):
             surface = self._surface_for_anchor(surfaces)
             if self.snap_anchor is not None and surface is None:
                 self._detach_snap()
+            if self._is_carrot_pose() and self._maintain_carrot_support():
+                return
             if self._is_sleeping_pose():
                 self._maintain_sleep_support()
                 return
@@ -1235,7 +1261,10 @@ def make_window(manifest: PetManifest):
             if reaction.action:
                 # react() already recorded human events. Automatic actions must
                 # preserve the policy's automatic nap ownership.
-                self.request_action(reaction.action, user_initiated=False)
+                action = reaction.action
+                if action == "spin_carrot" and action not in self.controller.actions:
+                    action = "eat"
+                self.request_action(action, user_initiated=False)
 
         def _user_reaction(self, event: str) -> None:
             self._cancel_cursor_play()
@@ -1905,6 +1934,41 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
     window.policy = InteractionPolicy(style="lively", rng=random.Random(0))
     window.policy.set_enabled(False)
 
+    if "spin_carrot" in window.controller.actions:
+        # New food scenes are ordinary alpha frames, including in the fixed
+        # capture view. A later human intention waits for the full meal.
+        window.toggle_capture_window(True)
+        window.hover_timer.stop()
+        window.controller = ActionController(manifest.names, default_idle=manifest.default_animation)
+        window._activate(window.controller.current.clip, window.controller.current.mode)
+        start = len(window.play_history)
+        window.request_action("spin_carrot")
+        queued = False
+        saw_spin_capture = False
+        for _ in range(700):
+            if window.current_name == "carrot_spin":
+                saw_spin_capture = (
+                    bool(captured_paths)
+                    and captured_paths[-1][0] == expected_capture_body()
+                )
+                if not queued:
+                    window.request_action("eat")
+                    window.request_action("happy")
+                    queued = True
+            if window.controller.active_action == "happy":
+                break
+            window.advance_frame()
+            window.timer.stop()
+        trace = window.play_history[start:]
+        expected = ["carrot_offer", "carrot_place", "carrot_spin", "eat_carrot_spun", "idle_happy"]
+        if trace[:len(expected)] != expected or not queued or not saw_spin_capture:
+            raise AssertionError(f"转胡萝卜流程或采集没有完整收尾: {trace}")
+        if window.controller.active_action != "happy":
+            raise AssertionError("转胡萝卜结束后没有接受最新手动动作")
+        window.controller = ActionController(manifest.names, default_idle=manifest.default_animation)
+        window._activate(window.controller.current.clip, window.controller.current.mode)
+        window.toggle_capture_window(False)
+
     # Exercise the actual directional game frames, motion envelope, controller
     # exits and frozen cursor-play import without moving the user's cursor.
     if {"earrub", "walk", "happy", "abandon"} <= set(window.controller.actions):
@@ -2113,7 +2177,7 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
             f"{action_count} complete actions, {frame_count} animation/effect frames at "
             f"{canvas[0]}x{canvas[1]}; controller flows, raw preview, "
             "skin/direction, click/double-click/hover/feed/drop, ear/belly taps, "
-            "wheel/shake, cursor notice/chase/stop, manual sleep, floor docking, capture-window sync/lifecycle, "
+            "wheel/shake, cursor notice/chase/stop, carrot spin/native eating, manual sleep, floor docking, capture-window sync/lifecycle, "
             "effect mask, and 8-clip LRU verified"
         )
         app.quit()
@@ -2352,6 +2416,7 @@ def run_smoke_test(app, window, manifest: PetManifest, frame_count: int, canvas)
         if window.controller.active_action != "eat" or window.current_name not in {
             "eat",
             "eat_carrot",
+            "carrot_offer",
         }:
             fail("F 键没有喂食并播放吃东西动作")
             return

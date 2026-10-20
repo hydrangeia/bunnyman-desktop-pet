@@ -14,6 +14,9 @@ class Reaction:
 
 
 class InteractionPolicy:
+    FEED_COOLDOWN = 4
+    CARROT_SPIN_COOLDOWN = 35
+    CARROT_SPIN_CHANCE = 0.30
     PROFILES = {
         'lively': {'interval': (12,24), 'nap_after': 180, 'nap_length': 25, 'hover_cooldown':8},
         'quiet': {'interval': (60,110), 'nap_after': 300, 'nap_length': 60, 'hover_cooldown':25},
@@ -35,6 +38,8 @@ class InteractionPolicy:
         self._wheel_count = 0
         self._wheel_at = float('-inf')
         self._double_count = 0
+        self._has_fed = False
+        self._last_carrot_spin_at = None
         self.auto_thaw_at = None
         self._schedule(now)
 
@@ -111,10 +116,24 @@ class InteractionPolicy:
                 return None
             return Reaction('hit_big')
         if event == 'feed':
-            if not self._ready(event,now,4):
+            if not self._ready(event,now,self.FEED_COOLDOWN):
                 self.auto_thaw_at = previous_thaw
                 return Reaction(None,'慢点，我还在嚼呢。')
-            return Reaction('eat','胡萝卜！')
+            action = 'eat'
+            can_spin = (
+                self._has_fed
+                and self.style == 'lively'
+                and self.enabled
+                and (
+                    self._last_carrot_spin_at is None
+                    or now - self._last_carrot_spin_at >= self.CARROT_SPIN_COOLDOWN
+                )
+            )
+            if can_spin and self.rng.random() < self.CARROT_SPIN_CHANCE:
+                action = 'spin_carrot'
+                self._last_carrot_spin_at = now
+            self._has_fed = True
+            return Reaction(action,'胡萝卜！')
         if event == 'pet':
             self._pokes = [stamp for stamp in self._pokes if now-stamp<=2]
             self._pokes.append(now)

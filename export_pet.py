@@ -153,7 +153,10 @@ def build_symbol_images(build):
 LABELS = {
     'idle_loop': '待机', 'idle_happy': '开心', 'idle_earrub': '揉耳朵',
     'idle_angry': '生气', 'idle_creepy': '诡笑', 'hungry': '肚子饿',
-    'dance': '跳舞', 'eat': '吃东西', 'disgust': '嫌弃',
+    'dance': '跳舞', 'eat': '吃东西', 'eat_carrot': '吃胡萝卜',
+    'carrot_offer': '递上胡萝卜', 'carrot_place': '放下胡萝卜',
+    'carrot_spin': '旋转胡萝卜', 'eat_carrot_spun': '吃旋转胡萝卜',
+    'disgust': '嫌弃',
     'pig_pickup': '拾取', 'pig_take': '接受礼物', 'pig_reject': '拒绝礼物',
     'walk_pre': '走路起步', 'walk_loop': '走路', 'walk_pst': '走路停下',
     'run_pre': '跑步起步', 'run_loop': '跑步', 'run_pst': '跑步停下',
@@ -214,21 +217,25 @@ def load_assets(anim_dir):
     return animations, symbols, equipment, all_names
 
 
-def symbol_setup(skin, animation, base, equipment):
+def symbol_setup(skin, animation, base, equipment, *, lower_pillow=False):
     symbols = dict(base)
     hidden = set(HIDDEN_LAYERS)
     if skin != 'normal':
         symbols.update(equipment['hat_nightcap'])
         hidden = {symbol_hash(n) for n in ['HAIR', 'HAIR_NOHAT', 'ARM_carry']}
-    carrying = (skin == 'cozy_pillow' or 'overhead' in animation
+    carrying = ((skin == 'cozy_pillow' and not lower_pillow) or 'overhead' in animation
                 or animation.startswith(('atk_object', 'pillow_putdown')))
+    pillow = equipment['swap_pillows_petals']
+    if skin == 'cozy_pillow':
+        # The waist pillow is part of this skin even when its hand-held pillow
+        # has been put down for a feeding or spin interaction.
+        for (key, index), value in pillow.items():
+            if key == symbol_hash('swap_body_rabbit'):
+                symbols[symbol_hash('belt'), index] = value
     if carrying:
-        pillow = equipment['swap_pillows_petals']
         for (key, index), value in pillow.items():
             if key == symbol_hash('swap_object'):
                 symbols[key, index] = value
-            if skin == 'cozy_pillow' and key == symbol_hash('swap_body_rabbit'):
-                symbols[symbol_hash('belt'), index] = value
         hidden.discard(symbol_hash('ARM_carry'))
         hidden.add(symbol_hash('ARM_normal'))
     if animation.startswith('frozen'):
@@ -316,56 +323,141 @@ def _blend_to_idle(start, idle, steps=7):
             for index in range(steps + 1)]
 
 
-def _carrot_image(effect_assets, scale):
-    carrot = effect_assets['carrot']
-    idle = find_clip(carrot['clips'], 'idle', 255)
-    points = visible_bounds(idle['frames'][0], carrot['symbols'], set())
-    left = math.floor(min(x for x, _ in points)) - 3
-    top = math.floor(min(y for _, y in points)) - 3
-    right = math.ceil(max(x for x, _ in points)) + 3
-    bottom = math.ceil(max(y for _, y in points)) + 3
-    canvas = (max(1, math.ceil((right - left) * scale)),
-              max(1, math.ceil((bottom - top) * scale)))
-    origin = (-left, -top)
-    image = render_frame(idle['frames'][0], carrot['symbols'], canvas, origin,
-                         hidden_layers=set(), scale=scale)
-    box = image.getbbox()
-    return image.crop(box) if box else image
+CARROT_GROUND_OFFSET = (130.0, -54.0)
+CARROT_PROP_SCALE = 0.55
+EAT_CONSUMPTION_FRAME = 4
+CARROT_SPIN_LOOP_CYCLES = 2
+CARROT_STOP_HOLD_FRAMES = 12
 
 
-EAT_CARROT_SCALE = 0.68
-EAT_CARROT_BITE_START = 28
-EAT_CARROT_BITE_END = 40
+def _ground_prop_origin(origin, actor_scale, offset=CARROT_GROUND_OFFSET):
+    """Keep a uniformly smaller prop at a fixed screen position and pivot."""
+    prop_scale = actor_scale * CARROT_PROP_SCALE
+    anchor_pixels = (
+        origin[0] * actor_scale + offset[0] * actor_scale,
+        origin[1] * actor_scale + offset[1] * actor_scale,
+    )
+    return anchor_pixels[0] / prop_scale, anchor_pixels[1] / prop_scale
 
 
-def _eat_carrot_frame(body, carrot, index, total, origin):
-    """Move the real carrot from the hand to the mouth, hold, then eat it."""
-    if index >= EAT_CARROT_BITE_END:
-        return body
-    image = carrot
-    if index <= 4:
-        amount = index / 4
-        center_x = origin[0] + 12
-        center_y = origin[1] - (78 + 30 * amount)
-    elif index < EAT_CARROT_BITE_START:
-        center_x = origin[0] + 12
-        center_y = origin[1] - 108
-    else:
-        amount = max(0.0, (EAT_CARROT_BITE_END - index) /
-                     (EAT_CARROT_BITE_END - EAT_CARROT_BITE_START))
-        if amount <= 0:
-            return body
-        size = (max(1, round(carrot.width * amount)),
-                max(1, round(carrot.height * amount)))
-        image = carrot.resize(size, Image.Resampling.LANCZOS)
-        alpha = image.getchannel('A').point(lambda value: round(value * amount))
-        image.putalpha(alpha)
-        center_x = origin[0] + 12
-        center_y = origin[1] - 108
-    x = round(center_x - image.width / 2)
-    y = round(center_y - image.height / 2)
-    body.alpha_composite(image, (x, y))
-    return body
+def _overlay_prop(body, prop):
+    if body.size != prop.size:
+        raise ValueError(f'Body and prop canvases differ: {body.size} != {prop.size}')
+    result = body.copy()
+    result.alpha_composite(prop)
+    return result
+
+
+def _compose_prop_sequence(body_frames, prop_frames):
+    if len(body_frames) != len(prop_frames):
+        raise ValueError('Body and prop frame counts must match')
+    return [_overlay_prop(body, prop)
+            for body, prop in zip(body_frames, prop_frames)]
+
+
+def _eat_carrot_frames(body_frames, ground_carrot,
+                       consume_frame=EAT_CONSUMPTION_FRAME):
+    """Show the ground carrot up to the native consume event, then raw body."""
+    return [(_overlay_prop(body, ground_carrot) if index < consume_frame
+             else body.copy())
+            for index, body in enumerate(body_frames)]
+
+
+def _carrot_spin_sequence(spin_pre, spin_loop, spin_pst,
+                          loop_cycles=CARROT_SPIN_LOOP_CYCLES,
+                          hold_frames=CARROT_STOP_HOLD_FRAMES):
+    """Return native spin frames, holding the final stopped pose in place."""
+    if loop_cycles < 1:
+        raise ValueError('A carrot spin needs at least one spin_loop cycle')
+    if hold_frames < 0:
+        raise ValueError('The stopped hold cannot have a negative length')
+    if not spin_pst:
+        raise ValueError('The native spin_pst animation must contain a frame')
+    return [*spin_pre,
+            *(spin_loop * loop_cycles),
+            *spin_pst,
+            *([spin_pst[-1]] * hold_frames)]
+
+
+def _render_ground_prop(frame, symbols, canvas, origin, scale):
+    prop_scale = scale * CARROT_PROP_SCALE
+    prop_origin = _ground_prop_origin(origin, scale)
+    return render_frame(frame, symbols, canvas, prop_origin,
+                        hidden_layers=set(), scale=prop_scale)
+
+
+def _add_generated_clip(generated, skin, clip_id, name, label, group, fps,
+                        source, images):
+    entry = _save_clip_images(skin, clip_id, images, fps, label, group, source)
+    generated.setdefault(clip_id, {
+        'name': name, 'label': label, 'group': group,
+        'facing': entry['facing'], 'fps': fps, 'source': source, 'frames': {},
+    })
+    generated[clip_id]['frames'][skin] = entry['frames'][skin]
+    return entry
+
+
+def _write_webp_preview(path, frames, fps):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frames[0].save(path, save_all=True, append_images=frames[1:],
+                   duration=round(1000 / fps), loop=0, lossless=True)
+
+
+def _write_carrot_review(preview_frames, fps):
+    """Write transparent full-action previews and a compact comparison sheet."""
+    from PIL import ImageDraw
+
+    folder = HERE / '.build' / 'carrot-review'
+    folder.mkdir(parents=True, exist_ok=True)
+    clips = ('carrot_offer__255', 'carrot_place__255',
+             'carrot_spin__8', 'eat_carrot__255', 'eat_carrot_spun__255')
+    skins = ('normal', 'cozy', 'cozy_pillow')
+    for clip_id in clips:
+        for skin in skins:
+            _write_webp_preview(folder / f'{clip_id}__{skin}.webp',
+                                preview_frames[clip_id][skin], fps)
+
+    keyframes = {
+        'carrot_offer__255': lambda frames: len(frames) // 2,
+        'carrot_place__255': lambda frames: len(frames) // 2,
+        'carrot_spin__8': lambda frames: 16 + 8,
+        'eat_carrot__255': lambda frames: 0,
+        'eat_carrot_spun__255': lambda frames: 0,
+    }
+    cell_w, cell_h, image_w, image_h = 220, 232, 200, 198
+    sheet = Image.new('RGB', (cell_w * len(skins), cell_h * len(clips)), '#f3f0e9')
+    draw = ImageDraw.Draw(sheet)
+    for row, clip_id in enumerate(clips):
+        for column, skin in enumerate(skins):
+            frames = preview_frames[clip_id][skin]
+            index = min(keyframes[clip_id](frames), len(frames) - 1)
+            image = frames[index].copy()
+            image.thumbnail((image_w, image_h), Image.Resampling.LANCZOS)
+            left = column * cell_w + (cell_w - image.width) // 2
+            top = row * cell_h + 22 + (image_h - image.height) // 2
+            sheet.paste('#d8d4ca', (column * cell_w, row * cell_h,
+                                    (column + 1) * cell_w, (row + 1) * cell_h))
+            sheet.paste(image, (left, top), image)
+            draw.text((column * cell_w + 6, row * cell_h + 5),
+                      f'{clip_id} / {skin} / f{index}', fill='#211e1a')
+    sheet.save(folder / 'contact-sheet.png')
+
+    proof = Image.new('RGB', (cell_w * 2, cell_h * len(skins)), '#f3f0e9')
+    draw = ImageDraw.Draw(proof)
+    for row, skin in enumerate(skins):
+        for column, clip_id in enumerate(('eat_carrot__255', 'eat_carrot_spun__255')):
+            frame = preview_frames[clip_id][skin][EAT_CONSUMPTION_FRAME].copy()
+            frame.thumbnail((image_w, image_h), Image.Resampling.LANCZOS)
+            left = column * cell_w + (cell_w - frame.width) // 2
+            top = row * cell_h + 22 + (image_h - frame.height) // 2
+            proof.paste('#d8d4ca', (column * cell_w, row * cell_h,
+                                    (column + 1) * cell_w, (row + 1) * cell_h))
+            proof.paste(frame, (left, top), frame)
+            label = 'idle' if clip_id == 'eat_carrot__255' else 'spun'
+            draw.text((column * cell_w + 6, row * cell_h + 5),
+                      f'{skin} / {label} / raw eat f{EAT_CONSUMPTION_FRAME}',
+                      fill='#211e1a')
+    proof.save(folder / 'eat-consume-frame4.png')
 
 
 def export_extra_assets(anim_dir, animations, base, equipment, manifest, scale):
@@ -377,6 +469,7 @@ def export_extra_assets(anim_dir, animations, base, equipment, manifest, scale):
     skins = manifest['skins']
     by_name_and_facing = {(a['name'], a['facing']): a for a in animations}
     generated = {}
+    preview_frames = {}
 
     # Lowering the pillow reuses the real lift animation in reverse. The attack
     # ending starts from its own final pose and dissolves into standing instead.
@@ -424,31 +517,113 @@ def export_extra_assets(anim_dir, animations, base, equipment, manifest, scale):
                                                        'source': entry['source'], 'frames': {}})
             generated[attack_release_id]['frames'][skin] = entry['frames'][skin]
 
-    # Keep the original eat clip intact for the raw preview. Composite the
-    # actual carrot sprite over its hand/mouth movement for the player action.
-    eat = find_clip(animations, 'eat', 255)
-    carrot = _carrot_image(extras, scale)
-    carrot_for_eating = carrot.resize(
-        (max(1, round(carrot.width * EAT_CARROT_SCALE)),
-         max(1, round(carrot.height * EAT_CARROT_SCALE))),
-        Image.Resampling.LANCZOS,
+    carrot_anim = extras['carrot']
+    carrot_idle = find_clip(carrot_anim['clips'], 'idle', 255)
+    carrot_idle_prop = _render_ground_prop(
+        carrot_idle['frames'][0], carrot_anim['symbols'], canvas, origin, scale,
     )
-    eat_id = 'eat_carrot__255'
+    carrot_bounds = carrot_idle_prop.getbbox()
+    carrot = carrot_idle_prop.crop(carrot_bounds) if carrot_bounds else Image.new('RGBA', (1, 1))
+
+    # These two gestures keep the same ground carrot in place. Their native
+    # poses make the offer and the later pickup readable without inventing a
+    # carrot hand pose.
+    offer = find_clip(animations, 'pig_take', 255)
+    place = find_clip(animations, 'pig_pickup', 255)
+    for clip, clip_id, name, label in (
+        (offer, 'carrot_offer__255', 'carrot_offer', '递上胡萝卜'),
+        (place, 'carrot_place__255', 'carrot_place', '放下胡萝卜'),
+    ):
+        source = f"{clip['source']}:{clip['name']} + {carrot_idle['source']}:idle"
+        preview_frames[clip_id] = {}
+        for skin in skins:
+            symbols, hidden = symbol_setup(
+                skin, name, base, equipment, lower_pillow=True,
+            )
+            body_frames = _render_clip(clip, symbols, canvas, origin, hidden, scale)
+            props = [carrot_idle_prop] * len(body_frames)
+            frames = _compose_prop_sequence(body_frames, props)
+            _add_generated_clip(generated, skin, clip_id, name, label,
+                                '日常互动', clip['fps'], source, frames)
+            preview_frames[clip_id][skin] = frames
+
+    # Spin with the native carrot pre/loop/post sequence while the rabbit
+    # stays in its front-facing idle. Hold the post clip's final pose so the
+    # carrot keeps the same orientation when the feeding clip starts.
+    spin_pre = find_clip(carrot_anim['clips'], 'spin_pre', 255)
+    spin_loop = find_clip(carrot_anim['clips'], 'spin_loop', 255)
+    spin_pst = find_clip(carrot_anim['clips'], 'spin_pst', 8)
+    idle_loop = find_clip(animations, 'idle_loop', 8)
+    prop_spin_frames = _carrot_spin_sequence(
+        spin_pre['frames'], spin_loop['frames'], spin_pst['frames'],
+    )
+    spin_fps = spin_pre['fps']
+    if any(clip['fps'] != spin_fps for clip in
+           (spin_loop, spin_pst, carrot_idle, idle_loop)):
+        raise ValueError('Native bunnyman and carrot spin clips must share one FPS')
+    spin_source = (
+        f"{idle_loop['source']}:idle_loop + {spin_pre['source']}:spin_pre + "
+        f"{spin_loop['source']}:spin_loop x{CARROT_SPIN_LOOP_CYCLES} + "
+        f"{spin_pst['source']}:spin_pst facing 8 + final pose held "
+        f"{CARROT_STOP_HOLD_FRAMES} frames"
+    )
+    spin_id = 'carrot_spin__8'
+    preview_frames[spin_id] = {}
     for skin in skins:
-        symbols, hidden = symbol_setup(skin, 'eat', base, equipment)
-        body_frames = _render_clip(eat, symbols, canvas, origin, hidden, scale)
-        frames = [_eat_carrot_frame(frame, carrot_for_eating, index,
-                                    len(body_frames), origin_pixels)
-                  for index, frame in enumerate(body_frames)]
-        entry = _save_clip_images(
-            skin, eat_id, frames, eat['fps'], '吃胡萝卜', '日常互动',
-            'anim/manrabbit_actions.zip:eat + anim/carrot.zip:idle',
+        symbols, hidden = symbol_setup(
+            skin, 'carrot_spin', base, equipment, lower_pillow=True,
         )
-        generated.setdefault(eat_id, {'name': 'eat_carrot', 'label': '吃胡萝卜',
-                                      'group': '日常互动', 'facing': 255,
-                                      'fps': eat['fps'], 'source': entry['source'],
-                                      'frames': {}})
-        generated[eat_id]['frames'][skin] = entry['frames'][skin]
+        body_idle = _render_clip(idle_loop, symbols, canvas, origin, hidden, scale)
+        body_frames = [body_idle[index % len(body_idle)]
+                       for index in range(len(prop_spin_frames))]
+        props = [_render_ground_prop(frame, carrot_anim['symbols'], canvas, origin,
+                                     scale)
+                 for frame in prop_spin_frames]
+        bottom_limit = round(origin_pixels[1] + 4)
+        if any(prop.getbbox() and prop.getbbox()[3] > bottom_limit for prop in props):
+            raise AssertionError('A spinning carrot frame extends below its floor line')
+        frames = _compose_prop_sequence(body_frames, props)
+        _add_generated_clip(generated, skin, spin_id, 'carrot_spin', '旋转胡萝卜',
+                            '日常互动', spin_fps, spin_source, frames)
+        preview_frames[spin_id][skin] = frames
+
+    # The game consumes a carrot at 4 FRAMES. It stays on the ground through
+    # those four ticks; every frame after that is the untouched native eat
+    # body rendered with its hand pillow lowered on the cozy_pillow skin.
+    eat = find_clip(animations, 'eat', 255)
+    eat_id = 'eat_carrot__255'
+    eat_source = f"{eat['source']}:eat + {carrot_idle['source']}:idle"
+    spun_eat_id = 'eat_carrot_spun__255'
+    spun_carrot_prop = _render_ground_prop(
+        spin_pst['frames'][-1], carrot_anim['symbols'], canvas, origin, scale,
+    )
+    spun_eat_source = (
+        f"{eat['source']}:eat + {spin_pst['source']}:spin_pst facing 8"
+    )
+    preview_frames[eat_id] = {}
+    preview_frames[spun_eat_id] = {}
+    for skin in skins:
+        symbols, hidden = symbol_setup(
+            skin, 'eat', base, equipment, lower_pillow=True,
+        )
+        body_frames = _render_clip(eat, symbols, canvas, origin, hidden, scale)
+        frames = _eat_carrot_frames(body_frames, carrot_idle_prop)
+        spun_frames = _eat_carrot_frames(body_frames, spun_carrot_prop)
+        if any(frames[index].tobytes() != body_frames[index].tobytes()
+               for index in range(EAT_CONSUMPTION_FRAME, len(frames))):
+            raise AssertionError(f'{skin} eat frames changed after native consume frame')
+        if any(spun_frames[index].tobytes() != body_frames[index].tobytes()
+               for index in range(EAT_CONSUMPTION_FRAME, len(spun_frames))):
+            raise AssertionError(f'{skin} spun-eat frames changed after native consume frame')
+        _add_generated_clip(generated, skin, eat_id, 'eat_carrot', '吃胡萝卜',
+                            '日常互动', eat['fps'], eat_source, frames)
+        _add_generated_clip(generated, skin, spun_eat_id, 'eat_carrot_spun',
+                            '吃旋转胡萝卜', '日常互动', eat['fps'], spun_eat_source,
+                            spun_frames)
+        preview_frames[eat_id][skin] = frames
+        preview_frames[spun_eat_id][skin] = spun_frames
+
+    _write_carrot_review(preview_frames, spin_fps)
 
     # Preserve the exact character canvas and origin, so UI overlays align by
     # frame path alone and can contribute their alpha to the window mask.
@@ -487,7 +662,8 @@ def export_extra_assets(anim_dir, animations, base, equipment, manifest, scale):
     manifest['animations'].update(generated)
     manifest['source_scripts'] = list(dict.fromkeys([
         *manifest.get('source_scripts', []),
-        'stategraphs/SGcozy_bunnyman.lua', 'prefabs/carrot.lua', 'prefabs/veggies.lua',
+        'stategraphs/SGcozy_bunnyman.lua', 'brains/cozy_bunnymanbrain.lua',
+        'prefabs/carrot.lua', 'prefabs/veggies.lua',
         'prefabs/shatter.lua', 'prefabs/sparks.lua', 'prefabs/pillow_equipment.lua',
     ]))
     manifest['statistics'] = {

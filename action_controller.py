@@ -115,6 +115,21 @@ class ActionController:
             old_eat = catalog['eat']
             catalog['eat'] = ActionSpec(old_eat.label, old_eat.group,
                                         _steps('eat_carrot'), old_eat.exit_steps)
+        if {'carrot_offer', 'eat_carrot'} <= self.available:
+            old_eat = catalog['eat']
+            catalog['eat'] = ActionSpec(
+                old_eat.label, old_eat.group,
+                _steps('carrot_offer', 'eat_carrot'), old_eat.exit_steps,
+            )
+        spin_clips = {
+            'carrot_offer', 'carrot_place', 'carrot_spin', 'eat_carrot_spun', 'idle_happy',
+        }
+        if spin_clips <= self.available:
+            catalog['spin_carrot'] = ActionSpec(
+                '转胡萝卜', '隐藏发现',
+                _steps('carrot_offer', 'carrot_place', 'carrot_spin',
+                       'eat_carrot_spun', 'idle_happy'),
+            )
         # Older manifests do not contain the generated release clips. Keep
         # their previous pillow transitions usable while new exports get the
         # fully animated putdown sequence.

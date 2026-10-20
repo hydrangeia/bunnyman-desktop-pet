@@ -109,7 +109,7 @@ def main(argv=None) -> int:
                         help="another supported complete old folder (can be repeated)")
     parser.add_argument("--updated", type=Path, required=True, help="complete new portable program folder")
     parser.add_argument("--output", type=Path, required=True, help="standalone update assistant .exe")
-    parser.add_argument("--version", default="0.1.2")
+    parser.add_argument("--version", default="0.1.3")
     parser.add_argument("--compiler", type=Path)
     parser.add_argument("--dry-run", action="store_true", help="prepare and validate the patch without compiling")
     args = parser.parse_args(argv)

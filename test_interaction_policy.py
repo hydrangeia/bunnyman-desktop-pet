@@ -19,9 +19,24 @@ class FakeClock:
         return self.now
 
 
-def policy(style="lively", *, start=0.0, seed=13):
+def policy(style="lively", *, start=0.0, seed=13, rng=None):
     clock = FakeClock(start)
-    return InteractionPolicy(style, clock=clock, rng=random.Random(seed)), clock
+    return InteractionPolicy(
+        style, clock=clock, rng=rng if rng is not None else random.Random(seed)
+    ), clock
+
+
+class ScriptedRandom:
+    def __init__(self, draws=()):
+        self.draws = iter(draws)
+        self.random_calls = 0
+
+    def uniform(self, low, high):
+        return low
+
+    def random(self):
+        self.random_calls += 1
+        return next(self.draws)
 
 
 def make_controller():
@@ -84,7 +99,59 @@ def test_feed_cooldown_returns_feedback_without_replaying_eat():
     assert first.action == "eat"
     assert cooling_down.action is None
     assert cooling_down.text == "慢点，我还在嚼呢。"
-    assert ready_again.action == "eat"
+    assert ready_again.action in {"eat", "spin_carrot"}
+
+
+def test_first_feed_is_direct_and_carrot_spin_is_chance_gated_and_throttled():
+    rng = ScriptedRandom([0.1, 0.1])
+    pet_policy, _ = policy(rng=rng)
+
+    assert pet_policy.react("feed", now=0).action == "eat"
+    assert rng.random_calls == 0
+    assert pet_policy.react("feed", now=4).action == "spin_carrot"
+    assert rng.random_calls == 1
+
+    # The next feed is valid, but the 35-second post-spin gate prevents a roll.
+    assert pet_policy.react("feed", now=8).action == "eat"
+    assert rng.random_calls == 1
+    assert pet_policy.react("feed", now=38.999).action == "eat"
+    assert rng.random_calls == 1
+    assert pet_policy.react("feed", now=42.999).action == "spin_carrot"
+    assert rng.random_calls == 2
+
+
+def test_spin_chance_does_not_turn_every_eligible_feed_into_a_spin():
+    rng = ScriptedRandom([0.30, 0.299])
+    pet_policy, _ = policy(rng=rng)
+
+    assert pet_policy.react("feed", now=0).action == "eat"
+    assert pet_policy.react("feed", now=4).action == "eat"
+    assert pet_policy.react("feed", now=8).action == "spin_carrot"
+    assert rng.random_calls == 2
+
+
+@pytest.mark.parametrize(
+    ("style", "enabled"), [("quiet", True), ("lively", False)]
+)
+def test_quiet_style_and_disabled_auto_activity_keep_feeding_direct(style, enabled):
+    rng = ScriptedRandom([0.1])
+    pet_policy, _ = policy(style, rng=rng)
+    pet_policy.set_enabled(enabled, now=0)
+
+    assert pet_policy.react("feed", now=0).action == "eat"
+    assert pet_policy.react("feed", now=4).action == "eat"
+    assert rng.random_calls == 0
+
+
+def test_reenabling_lively_activity_allows_later_feed_discovery():
+    rng = ScriptedRandom([0.1])
+    pet_policy, _ = policy(rng=rng)
+    pet_policy.react("feed", now=0)
+    pet_policy.set_enabled(False, now=1)
+    assert pet_policy.react("feed", now=4).action == "eat"
+    pet_policy.set_enabled(True, now=5)
+
+    assert pet_policy.react("feed", now=8).action == "spin_carrot"
 
 
 def test_pet_and_hover_cooldowns_suppress_repeated_reactions():

@@ -5,7 +5,7 @@ The assistant embeds a patch and its manifest in a Windows x64 .NET Framework ex
 From the project folder, with complete old/new portable folders available:
 
 ```powershell
-.\.build-venv\Scripts\python.exe build_updater.py --base dist\BunnymanDesktopPet --additional-base .build\v0.1.1\BunnymanDesktopPet --updated .build\v0.1.2\BunnymanDesktopPet --version 0.1.2 --output .build\v0.1.2\BunnymanDesktopPet-v0.1.x-to-v0.1.2-updater.exe
+.\.build-venv\Scripts\python.exe build_updater.py --base dist\BunnymanDesktopPet --additional-base .build\v0.1.1\BunnymanDesktopPet --additional-base .build\v0.1.2\BunnymanDesktopPet --updated .build\v0.1.3\BunnymanDesktopPet --version 0.1.3 --output .build\v0.1.3\BunnymanDesktopPet-v0.1.x-to-v0.1.3-updater.exe
 .\.build-venv\Scripts\python.exe -m pytest -q test_updater.py --basetemp .build\updater-tests
 ```
 

@@ -55,6 +55,40 @@ def test_new_human_intention_wins_over_surprise_timer():
     assert p.auto_thaw_at is None
 
 
+def test_rate_limited_feed_preserves_scheduled_thaw_cleanup():
+    p=policy()
+    assert p.react('feed',now=0).action=='eat'
+    for now in [0.1,0.2,0.3]:
+        p.react('wheel_down',now=now)
+
+    assert p.auto_thaw_at==4.3
+    assert p.react('feed',now=1).action is None
+    assert p.auto_thaw_at==4.3
+    assert p.tick(idle=False,active_action='freeze',now=4.3).action=='thaw'
+
+
+def test_feed_discovery_requires_a_prior_feed_and_suppresses_in_quiet_or_auto_off():
+    class FixedRandom:
+        def uniform(self, low, high):
+            return low
+
+        def random(self):
+            return 0.0
+
+    lively=InteractionPolicy(clock=lambda:0,rng=FixedRandom())
+    assert lively.react('feed',now=0).action=='eat'
+    assert lively.react('feed',now=4).action=='spin_carrot'
+
+    quiet=InteractionPolicy('quiet',clock=lambda:0,rng=FixedRandom())
+    assert quiet.react('feed',now=0).action=='eat'
+    assert quiet.react('feed',now=4).action=='eat'
+
+    disabled=InteractionPolicy(clock=lambda:0,rng=FixedRandom())
+    disabled.set_enabled(False,now=0)
+    assert disabled.react('feed',now=0).action=='eat'
+    assert disabled.react('feed',now=4).action=='eat'
+
+
 def test_separated_wheel_ticks_do_not_accumulate_forever():
     p=policy()
     for now in [0,2,4,6]:

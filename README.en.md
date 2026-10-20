@@ -6,9 +6,9 @@ Keep a Don't Starve Together rabbit in the corner of your desktop. It notices ta
 
 ## Download and launch
 
-For a first-time install, download the [Windows x64 full bundle for v0.1.2](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required; keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
+For a first-time install, download the [Windows x64 full bundle for v0.1.3](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip), extract the whole folder, and run `BunnymanDesktopPet.exe`. Python is not required; keep the `_internal` folder, `manifest.json`, and image folders beside the executable.
 
-If you already have a complete v0.1.0 or v0.1.1 installation, use the [standalone updater, about 8 MB](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.2/BunnymanDesktopPet-v0.1.x-to-v0.1.2-updater.exe): double-click it, select your original `BunnymanDesktopPet.exe`, then click “更新并重启” (Update and restart). It checks the installed resources and patch, closes the pet in that folder, backs up and replaces files, then restarts it. Failed file replacements restore the backup. The updater itself does not require Python.
+If you already have a complete v0.1.0, v0.1.1, or v0.1.2 installation, use the [standalone updater](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.3/BunnymanDesktopPet-v0.1.x-to-v0.1.3-updater.exe): double-click it, select your original `BunnymanDesktopPet.exe`, then click “更新并重启” (Update and restart). It checks the installed resources and patch, closes the pet in that folder, backs up and replaces files, then restarts it. Failed file replacements restore the backup. The updater itself does not require Python.
 
 If you previously ran a manual patch as a complete program and saw a missing `python313.dll` message, download the full bundle above. Older versions and manual overlays are on [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases).
 
@@ -17,7 +17,7 @@ The default look is a rabbit in a sleep cap, near the bottom of the screen, with
 ## Spend time with the rabbit
 
 - Tap different parts or double-click to trigger different interactions; keep playing to find more little surprises.
-- Press `F` or choose the carrot in the right-click menu to feed it. It visibly eats the carrot. Feeding has a cooldown; if it is busy, it finishes its current action before eating.
+- Press `F` or choose the carrot in the right-click menu to feed it. The first feed goes straight to eating. In Lively mode with automatic activity on, later feeds sometimes reveal a little Spin the Carrot moment: the rabbit sets the carrot by its feet, watches it spin, then eats it. Quiet company or automatic activity off keeps feeding direct. Feeding has a four-second cooldown; if the rabbit is busy, it finishes its current sequence, then carries out the latest queued action.
 - Drag with the left mouse button and release for a drop reaction. Pause over the rabbit and it will notice you.
 - The mouse wheel can trigger a freeze-and-thaw interaction.
 - Turn automatic activity off in the right-click menu, or choose “Quiet company.” The default “Lively and friendly” style adds occasional idle actions and a short nap after a quiet spell. If you put it to sleep yourself, wake it manually.
@@ -30,7 +30,7 @@ To choose an action or facing directly, open “Developer preview” in the righ
 <details>
 <summary>Hidden interaction hints</summary>
 
-Four taps within two seconds trigger hit sparks. Three downward wheel notches freeze the rabbit for four seconds before the ice shatters; scroll up to thaw it sooner. Shake it while dragging and releasing for a special reaction. Double-clicking starts with a dance, then leads to jumps, pillow play, and burrowing. Automatic activity and proximity play run only while idle; they wait while the rabbit sleeps, while an action is playing, while you are dragging it, while a menu is open, or while a manual action is queued.
+Four taps within two seconds trigger hit sparks. Three downward wheel notches freeze the rabbit for four seconds before the ice shatters; scroll up to thaw it sooner. Shake it while dragging and releasing for a special reaction. Double-clicking starts with a dance, then leads to jumps, pillow play, and burrowing. The carrot starts spinning, turns, and comes to a stop before being eaten. Eating preserves the rabbit's original hand, mouth, and cheek motions, followed by a happy reaction. This is a small single-rabbit desktop adaptation; the party's hareball and red-pouch stages are not included. Automatic activity and proximity play run only while idle; they wait while the rabbit sleeps, while an action is playing, while you are dragging it, while a menu is open, or while a manual action is queued.
 
 </details>
 

@@ -183,6 +183,82 @@ def test_latest_pending_target_wins_after_a_finite_once_action():
     assert pet.active_action == "earrub"
 
 
+CARROT_CLIPS = {
+    "carrot_offer", "carrot_place", "carrot_spin", "eat_carrot", "eat_carrot_spun"
+}
+
+
+def test_new_feed_actions_use_the_finite_carrot_sequences():
+    pet = ActionController(AVAILABLE | CARROT_CLIPS)
+
+    assert [step.clip for step in pet.actions["eat"].steps] == [
+        "carrot_offer", "eat_carrot"
+    ]
+    assert [step.clip for step in pet.actions["spin_carrot"].steps] == [
+        "carrot_offer", "carrot_place", "carrot_spin", "eat_carrot_spun", "idle_happy"
+    ]
+    assert all(step.mode == "once" for step in pet.actions["spin_carrot"].steps)
+
+
+@pytest.mark.parametrize(
+    ("queued_action", "expected_start"),
+    [("eat", "carrot_offer"), ("sleep", "sleep_pre"), ("dance", "dance")],
+)
+def test_queued_feed_sleep_or_manual_action_waits_for_the_whole_carrot_spin(
+    queued_action, expected_start
+):
+    pet = ActionController(AVAILABLE | CARROT_CLIPS)
+    assert pet.request("spin_carrot").clip == "carrot_offer"
+    pet.request(queued_action)
+
+    completed = [pet.finish_clip().clip for _ in range(5)]
+
+    assert completed == [
+        "carrot_place", "carrot_spin", "eat_carrot_spun", "idle_happy", expected_start
+    ]
+    assert pet.active_action == queued_action
+
+
+def test_queued_direct_feed_finishes_sleep_and_both_feed_clips():
+    pet = ActionController(AVAILABLE | CARROT_CLIPS)
+    pet.request("sleep")
+    assert pet.finish_clip().clip == "sleep_loop"
+    assert pet.request("eat") is None
+
+    assert pet.finish_clip().clip == "sleep_pst"
+    assert pet.finish_clip().clip == "carrot_offer"
+    assert pet.finish_clip().clip == "eat_carrot"
+    assert pet.finish_clip().clip == "idle_loop"
+    assert pet.active_action == "idle"
+
+
+def test_latest_queued_intent_wins_after_the_carrot_spin_finishes():
+    pet = ActionController(AVAILABLE | CARROT_CLIPS)
+    pet.request("spin_carrot")
+    pet.request("sleep")
+    pet.request("dance")
+
+    trace = [pet.current.clip]
+    for _ in range(5):
+        trace.append(pet.finish_clip().clip)
+
+    assert trace == [
+        "carrot_offer", "carrot_place", "carrot_spin", "eat_carrot_spun", "idle_happy", "dance"
+    ]
+    assert pet.active_action == "dance"
+
+
+@pytest.mark.parametrize(
+    ("clips", "expected_clip"),
+    [(AVAILABLE, "eat"), (AVAILABLE | {"eat_carrot"}, "eat_carrot")],
+)
+def test_legacy_manifests_keep_their_feed_action_and_hide_carrot_spin(clips, expected_clip):
+    pet = ActionController(clips)
+
+    assert "spin_carrot" not in pet.actions
+    assert pet.request("eat_carrot").clip == expected_clip
+
+
 # Exercise a request at every step boundary in the controller's multi-stage
 # physical actions. A step represents a complete animation clip; frame playback
 # lives in the UI and is intentionally absent from these synthetic tests.

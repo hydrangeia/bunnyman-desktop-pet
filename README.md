@@ -6,9 +6,9 @@
 
 ## 下载与启动
 
-首次使用，请下载 [Windows x64 完整包 v0.1.2](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。无需另装 Python；请保留 `_internal` 文件夹、`manifest.json` 和图片资源目录。
+首次使用，请下载 [Windows x64 完整包 v0.1.3](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/latest/download/BunnymanDesktopPet-windows-x64.zip)，解压整个文件夹，再运行 `BunnymanDesktopPet.exe`。无需另装 Python；请保留 `_internal` 文件夹、`manifest.json` 和图片资源目录。
 
-如果你已经安装了完整的 v0.1.0 或 v0.1.1，使用 [约 8 MB 的独立更新器](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.2/BunnymanDesktopPet-v0.1.x-to-v0.1.2-updater.exe)：双击运行，选择原来的 `BunnymanDesktopPet.exe`，再点击“更新并重启”。它会检查旧版资源和补丁，关闭对应的兔人、备份并替换文件，再重新启动；文件替换失败会自动恢复备份。更新器本身无需 Python。
+如果你已经安装了完整的 v0.1.0、v0.1.1 或 v0.1.2，使用 [独立更新器](https://github.com/hydrangeia/bunnyman-desktop-pet/releases/download/v0.1.3/BunnymanDesktopPet-v0.1.x-to-v0.1.3-updater.exe)：双击运行，选择原来的 `BunnymanDesktopPet.exe`，再点击“更新并重启”。它会检查旧版资源和补丁，关闭对应的兔人、备份并替换文件，再重新启动；文件替换失败会自动恢复备份。更新器本身无需 Python。
 
 如果之前误把手动补丁当完整程序运行，看到缺少 `python313.dll`，请下载上面的完整包。历史版本和手动覆盖包见 [GitHub Releases](https://github.com/hydrangeia/bunnyman-desktop-pet/releases)。
 
@@ -17,7 +17,7 @@
 ## 和兔人互动
 
 - 轻点不同部位、双击会触发不一样的互动，继续玩能发现更多小惊喜。
-- 按 `F` 或用右键菜单喂胡萝卜。兔人会实际吃胡萝卜；喂食有冷却，兔人忙着做动作时会等当前流程结束再吃。
+- 按 `F` 或用右键菜单喂胡萝卜。第一次会直接吃下；活泼亲人模式且自动活动开启时，之后偶尔会发现“转胡萝卜”：兔人把胡萝卜放到脚边，看它转一会儿再吃。安静陪伴或关闭自动活动时仍会直接吃。喂食有 4 秒冷却；兔人忙着做动作时会先完成当前流程，再执行排队的最后一个动作。
 - 按住左键拖动兔人，松开会回应放下；停在兔人身上一会儿，它也会注意到你。
 - 滚轮能触发冰冻和解冻互动。
 - 右键菜单可以关闭自动活动，或切换为“安静陪伴”。默认“活泼亲人”会在待机时偶尔做小动作；无人互动一阵子后会短暂打盹。手动选择睡觉后需要手动叫醒。
@@ -30,7 +30,7 @@
 <details>
 <summary>想看隐藏互动提示</summary>
 
-两秒内轻点四次会触发受击火花；向下滚轮三格会冻结四秒再碎冰解冻，向上滚轮可提前解冻。拖动时来回甩动再松手会触发特别回应。双击会从跳舞开始，继续探索可以遇到跳跃、枕头互动和钻地。自动活动和靠近互动只在待机时触发，不会打断睡觉、动作、拖动、打开的菜单或已排队的手动动作。
+两秒内轻点四次会触发受击火花；向下滚轮三格会冻结四秒再碎冰解冻，向上滚轮可提前解冻。拖动时来回甩动再松手会触发特别回应。双击会从跳舞开始，继续探索可以遇到跳跃、枕头互动和钻地。胡萝卜会完整经历起转、旋转和停下，再被吃掉；进食保留兔人原本的手、嘴和脸颊动作，最后开心回应。这是为单只桌宠改编的小发现，原版派对的兔毛球和红包流程暂未加入。自动活动和靠近互动只在待机时触发，不会打断睡觉、动作、拖动、打开的菜单或已排队的手动动作。
 
 </details>
 
